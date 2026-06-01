@@ -1,64 +1,119 @@
 # AI Interview Preparation System
 
-A simple Streamlit application for resume-based interview preparation.
+## Overview
+
+AI Interview Preparation System is an AI-powered mock interview platform that helps users prepare for technical and HR interviews.
+
+The system analyzes resumes, generates personalized interview questions, evaluates answers using AI, stores interview history, and generates reports.
+
+---
 
 ## Features
 
-- Upload a PDF resume
-- Extract resume text from the uploaded PDF
-- Display the extracted resume content
-- Count total resume words
-- Detect predefined technical skills from the resume text
-- Show detected skill count and a summary panel
+* Resume Upload (PDF)
+* Resume Text Extraction
+* Skill Detection
+* AI-Based Question Generation
+* Voice-to-Text Answer Capture
+* AI Answer Evaluation
+* Technical, Communication, and Confidence Scoring
+* Interview History Storage
+* Analytics Dashboard
+* Report Generation
+* SQLite Database Integration
+
+---
+
+## Technologies Used
+
+* Python
+* Streamlit
+* Gemini API
+* SQLite
+* SpeechRecognition
+* PyPDF2
+
+---
 
 ## Project Structure
 
-- `app.py` — Streamlit web app entrypoint
-- `modules/resume_parser.py` — PDF resume text extraction using `PyPDF2`
-- `modules/skill_extractor.py` — Detects predefined skills from extracted text
-- `requirements.txt` — Python dependencies
+AI-Interview-System/
 
-## Requirements
+├── app.py
 
-- Python 3.10+ recommended
-- `streamlit`
-- `PyPDF2`
-- `pandas`
+├── config.py
 
-## Setup
+├── requirements.txt
 
-Open PowerShell in the project folder and run:
+├── README.md
 
-```powershell
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-```
+├── modules/
 
-If you want to use a virtual environment:
+│ ├── resume_parser.py
 
-```powershell
-python -m venv venv
-.\\venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-```
+│ ├── skill_extractor.py
 
-## Run the app
+│ ├── question_generator.py
 
-```powershell
+│ ├── speech_to_text.py
+
+│ ├── answer_evaluator.py
+
+│ ├── score_parser.py
+
+│ ├── database_manager.py
+
+│ ├── report_generator.py
+
+│ ├── analytics.py
+
+│ └── export_history.py
+
+└── uploads/
+
+---
+
+## Installation
+
+Clone the repository:
+
+git clone https://github.com/YOUR_USERNAME/AI-Interview-System.git
+
+Move into the project folder:
+
+cd AI-Interview-System
+
+Install dependencies:
+
+pip install -r requirements.txt
+
+---
+
+## Environment Variables
+
+Create a `.env` file:
+
+GEMINI_API_KEY=YOUR_API_KEY
+
+---
+
+## Run the Project
+
 streamlit run app.py
-```
 
-Then open the local URL shown by Streamlit in your browser.
+---
 
-## Usage
+## Future Enhancements
 
-1. Open the app in your browser.
-2. Upload a resume PDF using the file uploader.
-3. View the extracted resume text.
-4. See detected skills and resume word count.
+* Video Interview Support
+* Multi-Language Support
+* Advanced Resume Analysis
+* AI Career Recommendations
 
-## Notes
+---
 
-- The skill extractor uses a fixed list of skills and matches text case-insensitively.
-- Uploaded files are saved in the `uploads/` folder.
+## Author
+
+Abhinay
+
+Final Year AI/ML Project
