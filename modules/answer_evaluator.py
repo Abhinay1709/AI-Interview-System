@@ -41,6 +41,6 @@ Improvement Suggestions:
     except Exception as e:
 
         return (
-            f"⚠ Gemini API Error\n\n"
+            f"Gemini API Error:\n\n"
             f"{str(e)}"
         )

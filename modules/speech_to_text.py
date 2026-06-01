@@ -2,13 +2,6 @@ import speech_recognition as sr
 
 
 def listen_and_convert():
-    """
-    Record audio from microphone and
-    convert speech to text.
-
-    Returns:
-        str: Recognized text or error message
-    """
 
     recognizer = sr.Recognizer()
 
@@ -16,9 +9,6 @@ def listen_and_convert():
 
         with sr.Microphone() as source:
 
-            print("Listening...")
-
-            # Reduce background noise
             recognizer.adjust_for_ambient_noise(
                 source,
                 duration=1
@@ -39,30 +29,15 @@ def listen_and_convert():
 
     except sr.WaitTimeoutError:
 
-        return (
-            "No speech detected. "
-            "Please try again."
-        )
+        return "No speech detected."
 
     except sr.UnknownValueError:
 
-        return (
-            "Could not understand the audio."
-        )
+        return "Could not understand audio."
 
     except sr.RequestError:
 
-        return (
-            "Speech recognition service "
-            "is unavailable."
-        )
-
-    except OSError:
-
-        return (
-            "Microphone not found. "
-            "Please connect a microphone."
-        )
+        return "Speech service unavailable."
 
     except Exception as e:
 

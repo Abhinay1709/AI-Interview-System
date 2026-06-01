@@ -30,7 +30,6 @@ Based on:
     except Exception as e:
 
         return (
-            f"⚠ Gemini API Error\n\n"
-            f"{str(e)}\n\n"
-            f"Wait 30 seconds and try again."
+            f"Gemini API Error:\n\n"
+            f"{str(e)}"
         )

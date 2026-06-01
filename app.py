@@ -5,6 +5,9 @@ warnings.filterwarnings(
     category=FutureWarning
 )
 
+# ----------------------------------
+# Imports
+# ----------------------------------
 
 import streamlit as st
 import os
@@ -16,7 +19,6 @@ from modules.resume_parser import extract_resume_text
 from modules.skill_extractor import extract_skills
 from modules.question_generator import generate_questions
 from modules.speech_to_text import listen_and_convert
-
 from modules.answer_evaluator import evaluate_answer
 from modules.score_parser import extract_scores
 
@@ -24,11 +26,20 @@ from modules.database_manager import (
     create_table,
     save_interview,
     get_all_interviews,
-    delete_interview
+    delete_interview,
+    clear_database
 )
 
 from modules.report_generator import (
     generate_report
+)
+
+from modules.analytics import (
+    calculate_statistics
+)
+
+from modules.export_history import (
+    export_history
 )
 
 # ----------------------------------
@@ -57,6 +68,30 @@ st.set_page_config(
 )
 
 st.title("🎤 AI Interview Preparation System")
+
+# ----------------------------------
+# Sidebar
+# ----------------------------------
+
+st.sidebar.title(
+    "Navigation"
+)
+
+st.sidebar.info(
+    """
+AI Interview Preparation System
+
+Features:
+
+✅ Resume Upload
+✅ AI Questions
+✅ Voice Answer
+✅ AI Evaluation
+✅ Database Storage
+✅ Reports
+✅ Analytics
+"""
+)
 
 # ----------------------------------
 # Session State Initialization
@@ -124,7 +159,7 @@ if uploaded_file is not None:
     )
 
 # ----------------------------------
-# Show Resume Content
+# Resume Display Content
 # ----------------------------------
 
     st.subheader(
@@ -251,7 +286,7 @@ if st.session_state.questions:
         st.rerun()
 
 # ----------------------------------
-# Voice Answer Section
+# voice answer section
 # ----------------------------------
 
 st.divider()
@@ -259,6 +294,10 @@ st.divider()
 st.header(
     "🎙 Answer Section"
 )
+
+# ----------------------------------
+# Speech Recognition
+# ----------------------------------
 
 if st.button(
     "Start Recording"
@@ -465,6 +504,65 @@ if st.session_state.current_answer:
         )
         
 # ----------------------------------
+# Analytics Dashboard section
+# ----------------------------------
+st.divider()
+
+st.header(
+    "📈 Analytics Dashboard"
+)
+
+records = get_all_interviews()
+
+stats = calculate_statistics(
+    records
+)
+
+col1, col2 = st.columns(2)
+
+with col1:
+
+    st.metric(
+        "Total Interviews",
+        stats["total_interviews"]
+    )
+
+with col2:
+
+    st.metric(
+        "Average Technical Score",
+        stats["average_score"]
+    )
+
+# ----------------------------------
+# Download Full History
+# ----------------------------------
+
+history_report = export_history(
+    records
+)
+
+st.download_button(
+    label="📥 Download Full History",
+    data=history_report,
+    file_name="interview_history.txt",
+    mime="text/plain"
+)    
+
+# ----------------------------------
+# Clear Entire Database
+# ----------------------------------
+
+if st.button(
+    "🗑 Clear Entire Database"
+):
+    clear_database()
+    st.success(
+        "Database Cleared Successfully!"
+    )
+    st.rerun()
+    
+# ----------------------------------
 # Interview History
 # ----------------------------------
 
@@ -548,3 +646,11 @@ else:
                 )
 
                 st.rerun()
+
+# ----------------------------------
+# Footer
+# ----------------------------------
+st.divider()
+st.caption(
+    "🎤 AI Interview Preparation System | Final Year Project"
+)
