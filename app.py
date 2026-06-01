@@ -1,3 +1,11 @@
+import warnings
+
+warnings.filterwarnings(
+    "ignore",
+    category=FutureWarning
+)
+
+
 import streamlit as st
 import os
 import google.generativeai as genai
@@ -9,26 +17,38 @@ from modules.skill_extractor import extract_skills
 from modules.question_generator import generate_questions
 from modules.speech_to_text import listen_and_convert
 
-from modules.answer_manager import (
-    save_answer,
-    delete_answer,
-    clear_answers
-)
-
 from modules.answer_evaluator import evaluate_answer
 from modules.score_parser import extract_scores
 
-# -----------------------------
+from modules.database_manager import (
+    create_table,
+    save_interview,
+    get_all_interviews,
+    delete_interview
+)
+
+from modules.report_generator import (
+    generate_report
+)
+
+# ----------------------------------
 # Gemini Configuration
-# -----------------------------
+# ----------------------------------
 
 genai.configure(
     api_key=GEMINI_API_KEY
 )
 
-# -----------------------------
-# Page Config
-# -----------------------------
+# ----------------------------------
+# Database Initialization
+# ----------------------------------
+
+create_table()
+
+
+# ----------------------------------
+# Page Configuration
+# ----------------------------------
 
 st.set_page_config(
     page_title="AI Interview Preparation System",
@@ -38,9 +58,9 @@ st.set_page_config(
 
 st.title("🎤 AI Interview Preparation System")
 
-# -----------------------------
+# ----------------------------------
 # Session State Initialization
-# -----------------------------
+# ----------------------------------
 
 if "responses" not in st.session_state:
     st.session_state.responses = []
@@ -57,16 +77,22 @@ if "evaluation" not in st.session_state:
 if "resume_text" not in st.session_state:
     st.session_state.resume_text = ""
 
-# -----------------------------
+# ----------------------------------
 # Resume Upload Section
-# -----------------------------
+# ----------------------------------
 
-st.header("📄 Resume Upload")
+st.header(
+    "📄 Resume Upload"
+)
 
 uploaded_file = st.file_uploader(
     "Upload Resume (PDF)",
     type=["pdf"]
 )
+
+# ----------------------------------
+# Process Resume
+# ----------------------------------
 
 if uploaded_file is not None:
 
@@ -86,7 +112,7 @@ if uploaded_file is not None:
         )
 
     st.success(
-        "Resume Uploaded Successfully!"
+        "✅ Resume Uploaded Successfully!"
     )
 
     resume_text = extract_resume_text(
@@ -97,8 +123,12 @@ if uploaded_file is not None:
         resume_text
     )
 
+# ----------------------------------
+# Show Resume Content
+# ----------------------------------
+
     st.subheader(
-        "Extracted Resume Content"
+        "📄 Extracted Resume Content"
     )
 
     st.text_area(
@@ -107,9 +137,9 @@ if uploaded_file is not None:
         height=250
     )
 
-    # -----------------------------
-    # Skills
-    # -----------------------------
+    # --------------------------
+    # Skill Extraction
+    # --------------------------
 
     skills = extract_skills(
         resume_text
@@ -123,7 +153,7 @@ if uploaded_file is not None:
 
     with col1:
         st.metric(
-            "Word Count",
+            "Resume Word Count",
             word_count
         )
 
@@ -133,8 +163,12 @@ if uploaded_file is not None:
             len(skills)
         )
 
+# ----------------------------------
+# Display Skills
+# ----------------------------------
+
     st.subheader(
-        "Detected Skills"
+        "🛠 Detected Skills"
     )
 
     if skills:
@@ -150,9 +184,9 @@ if uploaded_file is not None:
             "No predefined skills detected."
         )
 
-# -----------------------------
-# Generate Questions
-# -----------------------------
+# ----------------------------------
+# Question Generation
+# ----------------------------------
 
 st.divider()
 
@@ -170,7 +204,7 @@ if st.button(
             "Please upload a resume first."
         )
 
-    else:
+    elif not st.session_state.questions:
 
         with st.spinner(
             "Generating Questions..."
@@ -186,6 +220,16 @@ if st.button(
             "Questions Generated!"
         )
 
+    else:
+
+        st.info(
+            "Questions already generated."
+        )
+
+# ----------------------------------
+# Display Questions
+# ----------------------------------
+
 if st.session_state.questions:
 
     st.text_area(
@@ -194,9 +238,21 @@ if st.session_state.questions:
         height=300
     )
 
-# -----------------------------
+# ----------------------------------
+# Reset Questions
+# ----------------------------------
+
+    if st.button(
+        "🔄 Reset Questions"
+    ):
+
+        st.session_state.questions = ""
+
+        st.rerun()
+
+# ----------------------------------
 # Voice Answer Section
-# -----------------------------
+# ----------------------------------
 
 st.divider()
 
@@ -222,9 +278,9 @@ if st.button(
         "Speech Captured!"
     )
 
-# -----------------------------
-# Manual Input
-# -----------------------------
+# ----------------------------------
+# Manual Answer Input
+# ----------------------------------
 
 manual_answer = st.text_area(
     "Or Type Your Answer"
@@ -236,9 +292,9 @@ if manual_answer:
         manual_answer
     )
 
-# -----------------------------
-# Display Answer
-# -----------------------------
+# ----------------------------------
+# Display Current Answer
+# ----------------------------------
 
 if st.session_state.current_answer:
 
@@ -252,9 +308,9 @@ if st.session_state.current_answer:
         height=150
     )
 
-# -----------------------------
+# ----------------------------------
 # AI Evaluation
-# -----------------------------
+# ----------------------------------
 
 if st.session_state.current_answer:
 
@@ -262,24 +318,32 @@ if st.session_state.current_answer:
         "🤖 Evaluate Answer"
     ):
 
-        with st.spinner(
-            "Evaluating..."
-        ):
+        if not st.session_state.evaluation:
 
-            st.session_state.evaluation = (
-                evaluate_answer(
-                    "Interview Question",
-                    st.session_state.current_answer
+            with st.spinner(
+                "Evaluating..."
+            ):
+
+                st.session_state.evaluation = (
+                    evaluate_answer(
+                        "Interview Question",
+                        st.session_state.current_answer
+                    )
                 )
+
+            st.success(
+                "Evaluation Completed!"
             )
 
-        st.success(
-            "Evaluation Completed!"
-        )
+        else:
 
-# -----------------------------
-# Evaluation Display
-# -----------------------------
+            st.info(
+                "Evaluation already generated."
+            )
+
+# ----------------------------------
+# Evaluation Report
+# ----------------------------------
 
 if st.session_state.evaluation:
 
@@ -295,47 +359,57 @@ if st.session_state.evaluation:
         height=350
     )
 
-    # -----------------------------
-    # Score Dashboard
-    # -----------------------------
+# ----------------------------------
+# Score Extraction & Dashboard
+# ----------------------------------
 
     scores = extract_scores(
         st.session_state.evaluation
     )
 
     st.subheader(
-        "Performance Dashboard"
+        "📈 Performance Dashboard"
     )
 
     col1, col2, col3 = st.columns(3)
 
     with col1:
+
         st.metric(
             "Technical",
             f"{scores['technical']}/10"
         )
 
     with col2:
+
         st.metric(
             "Communication",
             f"{scores['communication']}/10"
         )
 
     with col3:
+
         st.metric(
             "Confidence",
             f"{scores['confidence']}/10"
         )
 
-    overall_score = (
-        scores["technical"]
-        + scores["communication"]
-        + scores["confidence"]
-    ) / 3
+# ----------------------------------
+# Overall Score
+# ----------------------------------
+
+    overall_score = round(
+        (
+            scores["technical"]
+            + scores["communication"]
+            + scores["confidence"]
+        ) / 3,
+        1
+    )
 
     st.metric(
         "Overall Score",
-        f"{round(overall_score,1)}/10"
+        f"{overall_score}/10"
     )
 
     st.progress(
@@ -345,106 +419,132 @@ if st.session_state.evaluation:
         )
     )
 
-# -----------------------------
-# Save Response
-# -----------------------------
+    if st.button(
+        "🔄 Reset Evaluation"
+    ):
+
+        st.session_state.evaluation = ""
+
+        st.rerun()
+
+# ----------------------------------
+# Download Report
+# ----------------------------------
+
+report = generate_report(
+    "Interview Question",
+    st.session_state.current_answer,
+    st.session_state.evaluation
+)
+
+st.download_button(
+    label="📥 Download Report",
+    data=report,
+    file_name="interview_report.txt",
+    mime="text/plain"
+)
+
+# ----------------------------------
+# Save Interview To Database
+# ----------------------------------
 
 if st.session_state.current_answer:
 
     if st.button(
-        "💾 Save Response"
+        "💾 Save Interview"
     ):
 
-        st.session_state.responses = (
-            save_answer(
-                "Interview Question",
-                st.session_state.current_answer,
-                st.session_state.evaluation,
-                st.session_state.responses
-            )
+        save_interview(
+            "Interview Question",
+            st.session_state.current_answer,
+            st.session_state.evaluation
         )
 
         st.success(
-            "Response Saved!"
+            "Interview Saved To Database!"
         )
-
-# -----------------------------
-# Stored Responses
-# -----------------------------
+        
+# ----------------------------------
+# Interview History
+# ----------------------------------
 
 st.divider()
 
 st.header(
-    "📁 Stored Responses"
+    "📚 Interview History"
 )
 
-if len(
-    st.session_state.responses
-) == 0:
+records = get_all_interviews()
+
+# ----------------------------------
+# Display History
+# ----------------------------------
+
+if not records:
 
     st.info(
-        "No responses saved yet."
+        "No interview records found."
     )
 
 else:
 
-    for index, response in enumerate(
-        st.session_state.responses
-    ):
+    for record in records:
+
+        record_id = record[0]
+
+        question = record[1]
+
+        answer = record[2]
+
+        evaluation = record[3]
+
+        # ----------------------------------
+        # Expander
+        # ----------------------------------
 
         with st.expander(
-            f"Response {index + 1}"
+            f"Interview #{record_id}"
         ):
 
             st.write(
                 "**Question:**"
             )
+
             st.write(
-                response["question"]
+                question
             )
 
             st.write(
                 "**Answer:**"
             )
+
             st.write(
-                response["answer"]
+                answer
             )
 
             st.write(
                 "**Evaluation:**"
             )
+
             st.write(
-                response["evaluation"]
+                evaluation
             )
 
+            # ----------------------------------
+            # Delete Interview
+            # ----------------------------------
+
             if st.button(
-                f"Delete Response {index+1}",
-                key=f"delete_{index}"
+                f"🗑 Delete Interview {record_id}",
+                key=f"delete_db_{record_id}"
             ):
 
-                st.session_state.responses = (
-                    delete_answer(
-                        index,
-                        st.session_state.responses
-                    )
+                delete_interview(
+                    record_id
+                )
+
+                st.success(
+                    "Interview Deleted!"
                 )
 
                 st.rerun()
-
-# -----------------------------
-# Clear All Responses
-# -----------------------------
-
-if len(
-    st.session_state.responses
-) > 0:
-
-    if st.button(
-        "🗑 Clear All Responses"
-    ):
-
-        st.session_state.responses = (
-            clear_answers()
-        )
-
-        st.rerun()

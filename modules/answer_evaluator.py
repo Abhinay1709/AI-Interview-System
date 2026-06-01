@@ -6,33 +6,26 @@ def evaluate_answer(question, answer):
     try:
 
         prompt = f"""
-You are an expert interviewer.
-
-Interview Question:
+Question:
 {question}
 
-Candidate Answer:
+Answer:
 {answer}
 
-Evaluate the answer using the following sections:
+Provide:
 
 Technical Score: X/10
 Communication Score: X/10
 Confidence Score: X/10
 
 Strengths:
-- Item 1
-- Item 2
+- point
 
 Weaknesses:
-- Item 1
-- Item 2
+- point
 
 Improvement Suggestions:
-- Item 1
-- Item 2
-
-Keep feedback professional and concise.
+- point
 """
 
         model = genai.GenerativeModel(
@@ -47,4 +40,7 @@ Keep feedback professional and concise.
 
     except Exception as e:
 
-        return f"Error: {str(e)}"
+        return (
+            f"⚠ Gemini API Error\n\n"
+            f"{str(e)}"
+        )
