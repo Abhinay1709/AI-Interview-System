@@ -1,23 +1,44 @@
 from PyPDF2 import PdfReader
+from docx import Document
 
 
-def extract_resume_text(pdf_file):
+def extract_resume_text(uploaded_file):
 
     text = ""
 
+    file_name = uploaded_file.name.lower()
+
     try:
 
-        reader = PdfReader(pdf_file)
+        # PDF
 
-        for page in reader.pages:
+        if file_name.endswith(".pdf"):
 
-            page_text = page.extract_text()
+            reader = PdfReader(uploaded_file)
 
-            if page_text:
-                text += page_text + "\n"
+            for page in reader.pages:
+
+                page_text = page.extract_text()
+
+                if page_text:
+                    text += page_text + "\n"
+
+        # DOCX
+
+        elif file_name.endswith(".docx"):
+
+            document = Document(uploaded_file)
+
+            for paragraph in document.paragraphs:
+
+                text += paragraph.text + "\n"
+
+        else:
+
+            return "Unsupported file format."
 
         return text.strip()
 
     except Exception as e:
 
-        return f"Error reading PDF: {str(e)}"
+        return f"Error reading file: {str(e)}"

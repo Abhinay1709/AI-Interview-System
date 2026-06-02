@@ -97,17 +97,20 @@ Features:
 # Session State Initialization
 # ----------------------------------
 
-if "responses" not in st.session_state:
-    st.session_state.responses = []
-
 if "questions" not in st.session_state:
     st.session_state.questions = ""
 
-if "current_answer" not in st.session_state:
-    st.session_state.current_answer = ""
+if "question_list" not in st.session_state:
+    st.session_state.question_list = []
 
-if "evaluation" not in st.session_state:
-    st.session_state.evaluation = ""
+if "selected_question" not in st.session_state:
+    st.session_state.selected_question = ""
+
+if "question_answers" not in st.session_state:
+    st.session_state.question_answers = {}
+
+if "question_evaluations" not in st.session_state:
+    st.session_state.question_evaluations = {}
 
 if "resume_text" not in st.session_state:
     st.session_state.resume_text = ""
@@ -117,12 +120,12 @@ if "resume_text" not in st.session_state:
 # ----------------------------------
 
 st.header(
-    "📄 Resume Upload"
+    "📄 Resume Upload (PDF / DOCX)"
 )
 
 uploaded_file = st.file_uploader(
-    "Upload Resume (PDF)",
-    type=["pdf"]
+    "Upload Resume ",
+    type=["pdf","docx"]
 )
 
 # ----------------------------------
@@ -239,26 +242,40 @@ if st.button(
             "Please upload a resume first."
         )
 
-    elif not st.session_state.questions:
+    else:
 
         with st.spinner(
             "Generating Questions..."
         ):
 
+            generated_questions = generate_questions(
+                st.session_state.resume_text
+            )
+
             st.session_state.questions = (
-                generate_questions(
-                    st.session_state.resume_text
-                )
+                generated_questions
+            )
+
+            question_list = []
+
+            for line in generated_questions.split("\n"):
+
+                line = line.strip()
+
+                if (
+                    line
+                    and line[0].isdigit()
+                ):
+                    question_list.append(
+                        line
+                    )
+
+            st.session_state.question_list = (
+                question_list
             )
 
         st.success(
             "Questions Generated!"
-        )
-
-    else:
-
-        st.info(
-            "Questions already generated."
         )
 
 # ----------------------------------
@@ -271,6 +288,29 @@ if st.session_state.questions:
         "Generated Questions",
         st.session_state.questions,
         height=300
+    )
+
+# ----------------------------------
+# Question selection
+# ----------------------------------
+
+if st.session_state.question_list:
+    
+    st.subheader(
+        "📌 Select Question"
+    )
+
+    selected_question = st.selectbox(
+        "Choose a question to answer",
+        st.session_state.question_list
+    )
+
+    st.session_state.selected_question = (
+        selected_question
+    )
+
+    st.info(
+        f"Selected Question:\n\n{selected_question}"
     )
 
 # ----------------------------------
@@ -300,102 +340,145 @@ st.header(
 # ----------------------------------
 
 if st.button(
-    "Start Recording"
+    "🎙 Start Recording"
 ):
 
-    st.info(
-        "Listening..."
-    )
+    if not st.session_state.selected_question:
 
-    answer = listen_and_convert()
+        st.warning(
+            "Please select a question first."
+        )
 
-    st.session_state.current_answer = (
-        answer
-    )
+    else:
 
-    st.success(
-        "Speech Captured!"
-    )
+        st.info(
+            "Listening..."
+        )
+
+        spoken_text = listen_and_convert()
+
+        selected_question = (
+            st.session_state.selected_question
+        )
+
+        st.session_state.question_answers[
+            selected_question
+        ] = spoken_text
+
+        st.success(
+            "Speech Captured Successfully!"
+        )
+
+        st.success(
+            "Speech Captured Successfully!"
+        )
+
+        st.rerun()
 
 # ----------------------------------
-# Manual Answer Input
+# Question-wise Answer Section
 # ----------------------------------
 
-manual_answer = st.text_area(
-    "Or Type Your Answer"
-)
-
-if manual_answer:
-
-    st.session_state.current_answer = (
-        manual_answer
+if st.session_state.selected_question:
+    
+    question = (
+        st.session_state.selected_question
     )
 
-# ----------------------------------
-# Display Current Answer
-# ----------------------------------
-
-if st.session_state.current_answer:
-
-    st.subheader(
-        "Your Answer"
+    existing_answer = (
+        st.session_state.question_answers.get(
+            question,
+            ""
+        )
     )
 
-    st.text_area(
-        "",
-        st.session_state.current_answer,
-        height=150
+    answer = st.text_area(
+
+        f"Answer for:\n{question}",
+
+        value=existing_answer,
+
+        height=180,
+
+        key=f"answer_{question}"
     )
+
+    st.session_state.question_answers[
+        question
+    ] = answer
 
 # ----------------------------------
 # AI Evaluation
 # ----------------------------------
 
-if st.session_state.current_answer:
+if st.session_state.selected_question:
 
     if st.button(
         "🤖 Evaluate Answer"
     ):
 
-        if not st.session_state.evaluation:
+        question = (
+            st.session_state.selected_question
+        )
+
+        answer = (
+            st.session_state.question_answers.get(
+                question,
+                ""
+            )
+        )
+
+        if not answer.strip():
+
+            st.warning(
+                "Please enter an answer first."
+            )
+
+        else:
 
             with st.spinner(
                 "Evaluating..."
             ):
 
-                st.session_state.evaluation = (
-                    evaluate_answer(
-                        "Interview Question",
-                        st.session_state.current_answer
-                    )
+                evaluation = evaluate_answer(
+                    question,
+                    answer
                 )
+
+            st.session_state.question_evaluations[
+                question
+            ] = evaluation
 
             st.success(
                 "Evaluation Completed!"
             )
 
-        else:
-
-            st.info(
-                "Evaluation already generated."
-            )
 
 # ----------------------------------
-# Evaluation Report
+# Evaluation Display
 # ----------------------------------
 
-if st.session_state.evaluation:
+question = (
+    st.session_state.selected_question
+)
 
-    st.divider()
+evaluation = (
+    st.session_state.question_evaluations.get(
+        question,
+        ""
+    )
+)
 
-    st.header(
-        "📊 AI Evaluation Report"
+if evaluation:
+
+    st.subheader(
+        "📊 Evaluation Report"
     )
 
     st.text_area(
-        "Evaluation",
-        st.session_state.evaluation,
-        height=350
+        "",
+        evaluation,
+        height=300
     )
 
 # ----------------------------------
@@ -403,7 +486,7 @@ if st.session_state.evaluation:
 # ----------------------------------
 
     scores = extract_scores(
-        st.session_state.evaluation
+        evaluation
     )
 
     st.subheader(
@@ -471,9 +554,13 @@ if st.session_state.evaluation:
 # ----------------------------------
 
 report = generate_report(
-    "Interview Question",
-    st.session_state.current_answer,
-    st.session_state.evaluation
+    question,
+    st.session_state.question_answers.get(
+        question,
+        ""
+    ),
+
+    evaluation
 )
 
 st.download_button(
@@ -487,21 +574,53 @@ st.download_button(
 # Save Interview To Database
 # ----------------------------------
 
-if st.session_state.current_answer:
+if st.session_state.selected_question:
 
     if st.button(
         "💾 Save Interview"
     ):
 
-        save_interview(
-            "Interview Question",
-            st.session_state.current_answer,
-            st.session_state.evaluation
+        question = (
+            st.session_state.selected_question
         )
 
-        st.success(
-            "Interview Saved To Database!"
+        answer = (
+            st.session_state.question_answers.get(
+                question,
+                ""
+            )
         )
+
+        evaluation = (
+            st.session_state.question_evaluations.get(
+                question,
+                ""
+            )
+        )
+
+        if not answer:
+
+            st.error(
+                "Please enter an answer first."
+            )
+
+        elif not evaluation:
+
+            st.error(
+                "Please evaluate the answer first."
+            )
+
+        else:
+
+            save_interview(
+                question,
+                answer,
+                evaluation
+            )
+
+            st.success(
+                f"Saved: {question}"
+            )
         
 # ----------------------------------
 # Analytics Dashboard section
