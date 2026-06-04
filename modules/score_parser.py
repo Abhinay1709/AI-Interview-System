@@ -7,43 +7,87 @@ def extract_scores(evaluation_text):
         "technical": 0,
         "communication": 0,
         "confidence": 0,
-        "overall": 0
+        "overall": 0,
+        "attempted": 0,
+        "total_questions": 0,
+        "skipped": 0,
+        "question_scores": {}      # NEW: individual per-question scores
     }
 
     try:
 
-        technical = re.search(
+        technical_match = re.search(
             r"Technical Score:\s*(\d+)",
             evaluation_text,
             re.IGNORECASE
         )
 
-        communication = re.search(
+        communication_match = re.search(
             r"Communication Score:\s*(\d+)",
             evaluation_text,
             re.IGNORECASE
         )
 
-        confidence = re.search(
+        confidence_match = re.search(
             r"Confidence Score:\s*(\d+)",
             evaluation_text,
             re.IGNORECASE
         )
 
-        if technical:
+        attempted_match = re.search(
+            r"Questions Attempted:\s*(\d+)\/(\d+)",
+            evaluation_text,
+            re.IGNORECASE
+        )
+
+        skipped_match = re.search(
+            r"Questions Skipped:\s*(\d+)\/(\d+)",
+            evaluation_text,
+            re.IGNORECASE
+        )
+
+        # NEW: match "Question N Score: X/10" or "Question N Score: X"
+        # (won't clash with "Technical Score" / "Communication Score"
+        #  because those don't start with "Question \d+")
+        question_score_matches = re.findall(
+            r"Question\s+(\d+)\s+Score:\s*(\d+)",
+            evaluation_text,
+            re.IGNORECASE
+        )
+
+        if technical_match:
             scores["technical"] = int(
-                technical.group(1)
+                technical_match.group(1)
             )
 
-        if communication:
+        if communication_match:
             scores["communication"] = int(
-                communication.group(1)
+                communication_match.group(1)
             )
 
-        if confidence:
+        if confidence_match:
             scores["confidence"] = int(
-                confidence.group(1)
+                confidence_match.group(1)
             )
+
+        if attempted_match:
+            scores["attempted"] = int(
+                attempted_match.group(1)
+            )
+            scores["total_questions"] = int(
+                attempted_match.group(2)
+            )
+
+        if skipped_match:
+            scores["skipped"] = int(
+                skipped_match.group(1)
+            )
+
+        # Build individual question scores dict
+        for q_num, q_score in question_score_matches:
+            scores["question_scores"][
+                f"Question {q_num}"
+            ] = int(q_score)
 
         scores["overall"] = round(
             (
@@ -54,7 +98,7 @@ def extract_scores(evaluation_text):
             1
         )
 
-    except:
+    except Exception:
         pass
 
     return scores

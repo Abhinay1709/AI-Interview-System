@@ -2,25 +2,63 @@
 
 ## Overview
 
-AI Interview Preparation System is an AI-powered mock interview platform that helps users prepare for technical and HR interviews.
+AI Interview Preparation System is an AI-powered mock interview platform that helps students and job seekers prepare for technical and HR interviews.
 
-The system analyzes resumes, generates personalized interview questions, evaluates answers using AI, stores interview history, and generates reports.
+The system analyzes resumes, generates personalized interview questions, collects answers one by one, evaluates the complete interview using AI, stores interview history, generates reports, and provides analytics.
 
 ---
 
 ## Features
 
-* Resume Upload (PDF)
-* Resume Text Extraction
-* Skill Detection
-* AI-Based Question Generation
-* Voice-to-Text Answer Capture
-* AI Answer Evaluation
-* Technical, Communication, and Confidence Scoring
-* Interview History Storage
-* Analytics Dashboard
-* Report Generation
-* SQLite Database Integration
+### Resume Analysis
+
+* Upload PDF resumes
+* Upload DOCX resumes
+* Extract resume text
+* Detect technical skills
+
+### AI Question Generation
+
+* Generates 10 interview questions
+* 5 Technical Questions
+* 3 HR Questions
+* 2 Project-Based Questions
+
+### Interview Mode
+
+* One question at a time
+* Save & Next navigation
+* Previous button
+* Edit answers anytime
+* Voice-to-text support
+* Progress tracking
+
+### AI Evaluation
+
+* Single evaluation for the complete interview
+* Technical Score
+* Communication Score
+* Confidence Score
+* Strengths Analysis
+* Weakness Analysis
+* Suggestions for Improvement
+
+### History Management
+
+* Auto-save completed interviews
+* View previous interviews
+* Download previous reports
+* Delete individual interviews
+* Delete complete history
+
+### Analytics Dashboard
+
+* Total Interviews
+* Average Technical Score
+* Average Communication Score
+* Average Confidence Score
+* Best Score
+* Worst Score
 
 ---
 
@@ -28,10 +66,11 @@ The system analyzes resumes, generates personalized interview questions, evaluat
 
 * Python
 * Streamlit
-* Gemini API
+* Google Gemini API
 * SQLite
-* SpeechRecognition
 * PyPDF2
+* python-docx
+* SpeechRecognition
 
 ---
 
@@ -47,6 +86,8 @@ AI-Interview-System/
 
 ├── README.md
 
+├── .env
+
 ├── modules/
 
 │ ├── resume_parser.py
@@ -59,7 +100,7 @@ AI-Interview-System/
 
 │ ├── answer_evaluator.py
 
-│ ├── score_parser.py
+│ ├── answer_manager.py
 
 │ ├── database_manager.py
 
@@ -67,9 +108,11 @@ AI-Interview-System/
 
 │ ├── analytics.py
 
-│ └── export_history.py
+│ ├── export_history.py
 
-└── uploads/
+│ └── score_parser.py
+
+└── interview_data.db
 
 ---
 
@@ -79,7 +122,7 @@ Clone the repository:
 
 git clone https://github.com/YOUR_USERNAME/AI-Interview-System.git
 
-Move into the project folder:
+Move to project folder:
 
 cd AI-Interview-System
 
@@ -89,31 +132,68 @@ pip install -r requirements.txt
 
 ---
 
-## Environment Variables
+## Environment Setup
 
-Create a `.env` file:
+Create a .env file:
 
 GEMINI_API_KEY=YOUR_API_KEY
 
 ---
 
-## Run the Project
+## Run Application
 
 streamlit run app.py
+
+---
+
+## Workflow
+
+Upload Resume
+
+↓
+
+Generate Questions
+
+↓
+
+Answer Questions
+
+↓
+
+Finish Interview
+
+↓
+
+AI Evaluation
+
+↓
+
+Auto Save
+
+↓
+
+Analytics Dashboard
+
+↓
+
+History & Reports
 
 ---
 
 ## Future Enhancements
 
 * Video Interview Support
-* Multi-Language Support
-* Advanced Resume Analysis
-* AI Career Recommendations
+* Emotion Detection
+* Multi-language Interviews
+* AI Career Guidance
+* Resume Scoring
 
 ---
 
 ## Author
 
-Abhinay
+Abhinay Andhavarapu
 
-Final Year AI/ML Project
+AI Interview Preparation System
+
+Final Year Mini Project

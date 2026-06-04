@@ -9,6 +9,10 @@ def listen_and_convert():
 
         with sr.Microphone() as source:
 
+            print(
+                "Listening..."
+            )
+
             recognizer.adjust_for_ambient_noise(
                 source,
                 duration=1
@@ -29,16 +33,24 @@ def listen_and_convert():
 
     except sr.WaitTimeoutError:
 
-        return "No speech detected."
+        return (
+            "No speech detected."
+        )
 
     except sr.UnknownValueError:
 
-        return "Could not understand audio."
+        return (
+            "Could not understand audio."
+        )
 
     except sr.RequestError:
 
-        return "Speech service unavailable."
+        return (
+            "Speech recognition service unavailable."
+        )
 
     except Exception as e:
 
-        return f"Error: {str(e)}"
+        return (
+            f"Error: {str(e)}"
+        )

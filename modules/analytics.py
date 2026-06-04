@@ -1,46 +1,161 @@
+import re
+
+
 def calculate_statistics(records):
 
     total_interviews = len(records)
 
-    total_score = 0
-
-    evaluated_count = 0
+    technical_scores = []
+    communication_scores = []
+    confidence_scores = []
+    overall_scores = []
 
     for record in records:
 
-        evaluation = record[3]
-
         try:
 
-            lines = evaluation.split("\n")
+            evaluation = record[4]
 
-            for line in lines:
+            technical = extract_score(
+                evaluation,
+                "Technical Score"
+            )
 
-                if "Technical Score:" in line:
+            communication = extract_score(
+                evaluation,
+                "Communication Score"
+            )
 
-                    score = int(
-                        line.split(":")[1]
-                        .replace("/10", "")
-                        .strip()
-                    )
+            confidence = extract_score(
+                evaluation,
+                "Confidence Score"
+            )
 
-                    total_score += score
+            if technical > 0:
 
-                    evaluated_count += 1
+                technical_scores.append(
+                    technical
+                )
 
-        except:
-            pass
+            if communication > 0:
 
-    average_score = 0
+                communication_scores.append(
+                    communication
+                )
 
-    if evaluated_count > 0:
+            if confidence > 0:
 
-        average_score = round(
-            total_score / evaluated_count,
-            2
+                confidence_scores.append(
+                    confidence
+                )
+
+            if (
+                technical > 0
+                and communication > 0
+                and confidence > 0
+            ):
+
+                overall = round(
+                    (
+                        technical
+                        + communication
+                        + confidence
+                    ) / 3,
+                    1
+                )
+
+                overall_scores.append(
+                    overall
+                )
+
+        except Exception:
+
+            continue
+
+    stats = {
+
+        "total_interviews":
+            total_interviews,
+
+        "average_technical":
+            calculate_average(
+                technical_scores
+            ),
+
+        "average_communication":
+            calculate_average(
+                communication_scores
+            ),
+
+        "average_confidence":
+            calculate_average(
+                confidence_scores
+            ),
+
+        "average_overall":
+            calculate_average(
+                overall_scores
+            ),
+
+        "best_score":
+            max(
+                overall_scores,
+                default=0
+            ),
+
+        "worst_score":
+            min(
+                overall_scores,
+                default=0
+            )
+    }
+
+    return stats
+
+
+def extract_score(
+    evaluation_text,
+    score_name
+):
+
+    try:
+
+        pattern = (
+            rf"{score_name}:\s*(\d+)"
         )
 
-    return {
-        "total_interviews": total_interviews,
-        "average_score": average_score
-    }
+        match = re.search(
+            pattern,
+            evaluation_text,
+            re.IGNORECASE
+        )
+
+        if match:
+
+            return int(
+                match.group(1)
+            )
+
+    except Exception:
+
+        pass
+
+    return 0
+
+
+def calculate_average(
+    scores
+):
+
+    if len(scores) == 0:
+
+        return 0
+
+    return round(
+
+        sum(scores)
+        /
+        len(scores),
+
+        2
+    )

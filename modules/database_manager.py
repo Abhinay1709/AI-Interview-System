@@ -1,4 +1,6 @@
 import sqlite3
+import json
+from datetime import datetime
 
 DB_NAME = "interview_data.db"
 
@@ -9,26 +11,84 @@ def create_table():
 
     cursor = conn.cursor()
 
+    # Create table if it doesn't exist at all
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS interviews (
 
         id INTEGER PRIMARY KEY AUTOINCREMENT,
 
-        question TEXT,
+        interview_date TEXT,
 
-        answer TEXT,
+        questions TEXT,
+
+        answers TEXT,
 
         evaluation TEXT
     )
     """)
 
     conn.commit()
+
+    # FIX: Migrate existing DB that was created without interview_date column.
+    # ALTER TABLE ADD COLUMN is safe to call — we catch the error if
+    # the column already exists and continue normally.
+    existing_columns = [
+        row[1]
+        for row in cursor.execute(
+            "PRAGMA table_info(interviews)"
+        ).fetchall()
+    ]
+
+    if "interview_date" not in existing_columns:
+
+        cursor.execute(
+            """
+            ALTER TABLE interviews
+            ADD COLUMN interview_date TEXT
+            """
+        )
+
+        conn.commit()
+
+    if "questions" not in existing_columns:
+
+        cursor.execute(
+            """
+            ALTER TABLE interviews
+            ADD COLUMN questions TEXT
+            """
+        )
+
+        conn.commit()
+
+    if "answers" not in existing_columns:
+
+        cursor.execute(
+            """
+            ALTER TABLE interviews
+            ADD COLUMN answers TEXT
+            """
+        )
+
+        conn.commit()
+
+    if "evaluation" not in existing_columns:
+
+        cursor.execute(
+            """
+            ALTER TABLE interviews
+            ADD COLUMN evaluation TEXT
+            """
+        )
+
+        conn.commit()
+
     conn.close()
 
 
 def save_interview(
-    question,
-    answer,
+    questions,
+    answers,
     evaluation
 ):
 
@@ -36,19 +96,33 @@ def save_interview(
 
     cursor = conn.cursor()
 
+    interview_date = datetime.now().strftime(
+        "%Y-%m-%d %H:%M:%S"
+    )
+
+    questions_json = json.dumps(
+        questions
+    )
+
+    answers_json = json.dumps(
+        answers
+    )
+
     cursor.execute(
         """
         INSERT INTO interviews
         (
-            question,
-            answer,
+            interview_date,
+            questions,
+            answers,
             evaluation
         )
-        VALUES (?, ?, ?)
+        VALUES (?, ?, ?, ?)
         """,
         (
-            question,
-            answer,
+            interview_date,
+            questions_json,
+            answers_json,
             evaluation
         )
     )
@@ -64,7 +138,11 @@ def get_all_interviews():
     cursor = conn.cursor()
 
     cursor.execute(
-        "SELECT * FROM interviews"
+        """
+        SELECT *
+        FROM interviews
+        ORDER BY id ASC
+        """
     )
 
     data = cursor.fetchall()
@@ -74,7 +152,33 @@ def get_all_interviews():
     return data
 
 
-def delete_interview(record_id):
+def get_interview_by_id(
+    interview_id
+):
+
+    conn = sqlite3.connect(DB_NAME)
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM interviews
+        WHERE id = ?
+        """,
+        (interview_id,)
+    )
+
+    record = cursor.fetchone()
+
+    conn.close()
+
+    return record
+
+
+def delete_interview(
+    interview_id
+):
 
     conn = sqlite3.connect(DB_NAME)
 
@@ -85,7 +189,7 @@ def delete_interview(record_id):
         DELETE FROM interviews
         WHERE id = ?
         """,
-        (record_id,)
+        (interview_id,)
     )
 
     conn.commit()
@@ -99,8 +203,30 @@ def clear_database():
     cursor = conn.cursor()
 
     cursor.execute(
-        "DELETE FROM interviews"
+        """
+        DELETE FROM interviews
+        """
     )
 
     conn.commit()
     conn.close()
+
+
+def get_total_interviews():
+
+    conn = sqlite3.connect(DB_NAME)
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT COUNT(*)
+        FROM interviews
+        """
+    )
+
+    total = cursor.fetchone()[0]
+
+    conn.close()
+
+    return total
