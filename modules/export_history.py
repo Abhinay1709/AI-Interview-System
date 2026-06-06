@@ -1,141 +1,438 @@
 import json
 import re
+import pandas as pd
 
-def export_history(records):
 
-    report = ""
+# ==========================================================
+# SAFE EXTRACT
+# ==========================================================
 
-    report += (
-        "AI INTERVIEW PREPARATION SYSTEM\n"
-    )
+def safe_extract(
+        pattern,
+        text,
+        default="N/A"
+):
 
-    report += (
-        "COMPLETE INTERVIEW HISTORY\n"
-    )
+    try:
 
-    report += (
-        "=" * 80 + "\n\n"
-    )
+        match = re.search(
+            pattern,
+            str(text),
+            re.IGNORECASE | re.DOTALL
+        )
+
+        if match:
+
+            value = match.group(1).strip()
+
+            if value:
+                return value
+
+    except Exception:
+        pass
+
+    return default
+
+
+# ==========================================================
+# QUESTION SCORE
+# ==========================================================
+
+def extract_question_score(
+        evaluation,
+        question_number
+):
+
+    try:
+
+        match = re.search(
+
+            rf"Question\s+{question_number}\s+Score:\s*(\d+\/10)",
+
+            evaluation,
+
+            re.IGNORECASE
+        )
+
+        if match:
+            return match.group(1)
+
+    except Exception:
+        pass
+
+    return "0/10"
+
+
+# ==========================================================
+# MODEL ANSWER
+# ==========================================================
+
+def extract_model_answer(
+        evaluation,
+        question_number
+):
+
+    try:
+
+        pattern = (
+
+            rf"Question\s+{question_number}\s+Score:.*?"
+
+            rf"Model Answer:\s*(.*?)"
+
+            rf"Feedback:"
+        )
+
+        match = re.search(
+
+            pattern,
+
+            evaluation,
+
+            re.IGNORECASE |
+            re.DOTALL
+        )
+
+        if match:
+
+            return (
+                match.group(1)
+                .strip()
+            )
+
+    except Exception:
+        pass
+
+    return "Not Available"
+
+
+# ==========================================================
+# FEEDBACK
+# ==========================================================
+
+def extract_feedback(
+        evaluation,
+        question_number
+):
+
+    try:
+
+        pattern = (
+
+            rf"Question\s+{question_number}\s+Score:.*?"
+
+            rf"Feedback:\s*(.*?)"
+
+            rf"(Question\s+\d+\s+Score:|Technical Score:)"
+        )
+
+        match = re.search(
+
+            pattern,
+
+            evaluation,
+
+            re.IGNORECASE |
+            re.DOTALL
+        )
+
+        if match:
+
+            return (
+                match.group(1)
+                .strip()
+            )
+
+    except Exception:
+        pass
+
+    return "Not Available"
+
+
+# ==========================================================
+# COMPLETION %
+# ==========================================================
+
+def calculate_completion(
+        answered,
+        total_questions
+):
+
+    try:
+
+        if total_questions <= 0:
+            return 0
+
+        return round(
+
+            (
+                answered /
+                total_questions
+            ) * 100,
+
+            2
+        )
+
+    except Exception:
+        return 0
+
+
+# ==========================================================
+# EXPORT HISTORY
+# ==========================================================
+
+def export_history_to_excel(
+        records,
+        output_file="Interview_History.xlsx"
+):
+
+    rows = []
+
+    # ======================================================
+    # NO RECORDS
+    # ======================================================
 
     if not records:
 
-        report += (
-            "No interview history found.\n"
+        df = pd.DataFrame(columns=[
+
+            "Interview ID",
+            "Interview Date",
+
+            "Question",
+            "My Answer",
+
+            "Question Score",
+            "Model Answer",
+            "Feedback",
+
+            "Technical Score",
+            "Communication Score",
+            "Confidence Score",
+            "Overall Score",
+
+            "Answered Questions",
+            "Skipped Questions",
+            "Completion %",
+
+            "Strengths",
+            "Weaknesses",
+            "Suggestions"
+        ])
+
+        df.to_excel(
+            output_file,
+            index=False
         )
 
-        return report
+        return output_file
+
+    # ======================================================
+    # PROCESS RECORDS
+    # ======================================================
 
     for record in records:
 
-        interview_id = record[0]
-
-        interview_date = record[1]
-
-        questions_json = record[2]
-
-        answers_json = record[3]
-
-        evaluation = record[4]
-
         try:
-            # Fixing bug that breaks older corrupted "null" databases
-            questions = json.loads(questions_json) if questions_json and questions_json.strip() not in ['null', ''] else []
-            answers = json.loads(answers_json) if answers_json and answers_json.strip() not in ['null', ''] else {}
-            
+
+            interview_id = record[0]
+            interview_date = record[1]
+
+            questions_json = record[2]
+            answers_json = record[3]
+
+            evaluation = record[4]
+
+            technical_score = record[5]
+            communication_score = record[6]
+            confidence_score = record[7]
+            overall_score = record[8]
+
+            total_questions = record[9]
+            answered_questions = record[10]
+            skipped_questions = record[11]
+
+            completion_percentage = record[12]
+
+            strengths = record[13]
+            weaknesses = record[14]
+            suggestions = record[15]
+
+            try:
+
+                questions = json.loads(
+                    questions_json
+                )
+
+            except Exception:
+
+                questions = []
+
+            try:
+
+                answers = json.loads(
+                    answers_json
+                )
+
+            except Exception:
+
+                answers = {}
+
+            # ==========================================
+            # QUESTION ROWS
+            # ==========================================
+
+            for index, question in enumerate(
+                    questions,
+                    start=1
+            ):
+
+                answer = answers.get(
+                    question,
+                    "No Answer"
+                )
+
+                question_score = (
+                    extract_question_score(
+                        evaluation,
+                        index
+                    )
+                )
+
+                model_answer = (
+                    extract_model_answer(
+                        evaluation,
+                        index
+                    )
+                )
+
+                feedback = (
+                    extract_feedback(
+                        evaluation,
+                        index
+                    )
+                )
+
+                rows.append({
+
+                    "Interview ID":
+                        interview_id,
+
+                    "Interview Date":
+                        interview_date,
+
+                    "Question":
+                        question,
+
+                    "My Answer":
+                        answer,
+
+                    "Question Score":
+                        question_score,
+
+                    "Model Answer":
+                        model_answer,
+
+                    "Feedback":
+                        feedback,
+
+                    "Technical Score":
+                        technical_score,
+
+                    "Communication Score":
+                        communication_score,
+
+                    "Confidence Score":
+                        confidence_score,
+
+                    "Overall Score":
+                        overall_score,
+
+                    "Answered Questions":
+                        answered_questions,
+
+                    "Skipped Questions":
+                        skipped_questions,
+
+                    "Completion %":
+                        completion_percentage,
+
+                    "Strengths":
+                        strengths,
+
+                    "Weaknesses":
+                        weaknesses,
+
+                    "Suggestions":
+                        suggestions
+                })
+
         except Exception:
+            continue
 
-            questions = []
+    # ======================================================
+    # CREATE DATAFRAME
+    # ======================================================
 
-            answers = {}
+    df = pd.DataFrame(rows)
 
-        report += (
-            f"INTERVIEW #{interview_id}\n"
+    # ======================================================
+    # SAVE EXCEL
+    # ======================================================
+
+    with pd.ExcelWriter(
+            output_file,
+            engine="openpyxl"
+    ) as writer:
+
+        df.to_excel(
+
+            writer,
+
+            sheet_name="Interview History",
+
+            index=False
         )
 
-        report += (
-            f"Date: {interview_date}\n"
-        )
+        worksheet = writer.sheets[
+            "Interview History"
+        ]
 
-        report += (
-            "-" * 80 + "\n\n"
-        )
+        # ==============================================
+        # AUTO COLUMN WIDTH
+        # ==============================================
 
-        report += (
-            "QUESTIONS, ANSWERS & FEEDBACK\n\n"
-        )
+        for column in worksheet.columns:
 
-        for index, question in enumerate(
-            questions,
-            start=1
-        ):
+            max_length = 0
 
-            answer = answers.get(
-                question,
-                "No Answer"
+            column_letter = (
+                column[0].column_letter
             )
 
-            q_score = "N/A"
-            model_answer = "Not available for this record."
-            
-            if evaluation:
-                sm = re.search(rf"Question {index} Score:\s*(.*?/10)", evaluation, re.IGNORECASE)
-                if sm: 
-                    q_score = sm.group(1)
-                
-                am = re.search(rf"Question {index} Score:.*?Model Answer:\s*(.*?)(?=\nQuestion \d+ Score|\nTechnical Score|\nCommunication Score|\nQuestions Attempted|\Z)", evaluation, re.DOTALL | re.IGNORECASE)
-                if am: 
-                    model_answer = am.group(1).strip()
+            for cell in column:
 
-            report += (
-                f"Question {index}\n"
+                try:
+
+                    if cell.value:
+
+                        max_length = max(
+
+                            max_length,
+
+                            len(
+                                str(cell.value)
+                            )
+                        )
+
+                except Exception:
+                    pass
+
+            worksheet.column_dimensions[
+                column_letter
+            ].width = min(
+                max_length + 5,
+                60
             )
 
-            report += (
-                f"{question}\n\n"
-            )
-
-            report += (
-                "Your Answer:\n"
-            )
-
-            report += (
-                f"{answer}\n\n"
-            )
-
-            report += (
-                f"Score: {q_score}\n"
-            )
-            
-            report += (
-                "Correct/Model Answer:\n"
-            )
-            
-            report += (
-                f"{model_answer}\n\n"
-            )
-            
-            report += (
-                "-" * 50 + "\n\n"
-            )
-
-        report += (
-            "OVERALL EVALUATION\n\n"
-        )
-
-        report += (
-            evaluation or "No evaluation available."
-        )
-
-        report += (
-            "\n\n"
-        )
-
-        report += (
-            "=" * 80
-        )
-
-        report += (
-            "\n\n"
-        )
-
-    return report
+    return output_file

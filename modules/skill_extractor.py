@@ -1,12 +1,9 @@
-def extract_skills(resume_text):
-    
-    if not resume_text:
+import re
 
-        return []
 
-    skill_database = [
+SKILL_DATABASE = {
 
-        # Programming Languages
+    "Programming Languages": [
 
         "Python",
         "Java",
@@ -15,11 +12,18 @@ def extract_skills(resume_text):
         "C#",
         "JavaScript",
         "TypeScript",
+        "PHP",
+        "Go",
+        "Rust",
+        "Kotlin",
+        "Swift"
+    ],
 
-        # Web Development
+    "Web Development": [
 
         "HTML",
         "CSS",
+        "Bootstrap",
         "React",
         "Angular",
         "Vue",
@@ -28,21 +32,26 @@ def extract_skills(resume_text):
         "Flask",
         "Django",
         "Streamlit",
+        "FastAPI",
+        "REST API"
+    ],
 
-        # Databases
+    "Databases": [
 
         "SQL",
         "MySQL",
         "PostgreSQL",
         "MongoDB",
         "SQLite",
+        "Oracle",
+        "Redis"
+    ],
 
-        # AI / ML
+    "AI / ML": [
 
         "Machine Learning",
         "Deep Learning",
         "Artificial Intelligence",
-        "Data Science",
         "NLP",
         "Computer Vision",
         "TensorFlow",
@@ -50,8 +59,12 @@ def extract_skills(resume_text):
         "Keras",
         "OpenCV",
         "Scikit-learn",
+        "LLM",
+        "Generative AI",
+        "LangChain"
+    ],
 
-        # Data Analysis
+    "Data Analysis": [
 
         "Pandas",
         "NumPy",
@@ -59,31 +72,45 @@ def extract_skills(resume_text):
         "Seaborn",
         "Power BI",
         "Tableau",
-        "Excel",
+        "Excel"
+    ],
 
-        # Cloud
+    "Cloud": [
 
         "AWS",
         "Azure",
         "Google Cloud",
+        "GCP",
+        "Firebase"
+    ],
 
-        # Tools
+    "Tools": [
 
         "Git",
         "GitHub",
         "Docker",
         "Linux",
+        "Jupyter",
+        "VS Code",
+        "Postman"
+    ],
 
-        # Mobile
+    "Mobile Development": [
 
         "Android",
         "Flutter",
-
-        # Other
-
-        "REST API",
-        "FastAPI"
+        "React Native"
     ]
+}
+
+
+def extract_skills(
+    resume_text
+):
+
+    if not resume_text:
+
+        return []
 
     detected_skills = []
 
@@ -91,16 +118,20 @@ def extract_skills(resume_text):
         resume_text.lower()
     )
 
-    for skill in skill_database:
+    for category in SKILL_DATABASE:
 
-        if (
-            skill.lower()
-            in resume_text_lower
+        for skill in (
+            SKILL_DATABASE[category]
         ):
 
-            detected_skills.append(
-                skill
-            )
+            if (
+                skill.lower()
+                in resume_text_lower
+            ):
+
+                detected_skills.append(
+                    skill
+                )
 
     detected_skills = list(
         set(detected_skills)
@@ -109,3 +140,114 @@ def extract_skills(resume_text):
     detected_skills.sort()
 
     return detected_skills
+
+
+# --------------------------------------------------
+# CATEGORY WISE SKILLS
+# --------------------------------------------------
+
+def extract_skills_by_category(
+    resume_text
+):
+
+    categorized_skills = {}
+
+    if not resume_text:
+
+        return categorized_skills
+
+    resume_text_lower = (
+        resume_text.lower()
+    )
+
+    for category, skills in (
+        SKILL_DATABASE.items()
+    ):
+
+        found_skills = []
+
+        for skill in skills:
+
+            if (
+                skill.lower()
+                in resume_text_lower
+            ):
+
+                found_skills.append(
+                    skill
+                )
+
+        if found_skills:
+
+            categorized_skills[
+                category
+            ] = sorted(
+                list(
+                    set(
+                        found_skills
+                    )
+                )
+            )
+
+    return categorized_skills
+
+
+# --------------------------------------------------
+# TOTAL SKILLS COUNT
+# --------------------------------------------------
+
+def get_total_skills(
+    resume_text
+):
+
+    skills = extract_skills(
+        resume_text
+    )
+
+    return len(skills)
+
+
+# --------------------------------------------------
+# RESUME SUMMARY
+# --------------------------------------------------
+
+def generate_skill_summary(
+    resume_text
+):
+
+    categorized_skills = (
+        extract_skills_by_category(
+            resume_text
+        )
+    )
+
+    total_skills = (
+        get_total_skills(
+            resume_text
+        )
+    )
+
+    return {
+
+        "total_skills":
+            total_skills,
+
+        "categorized_skills":
+            categorized_skills
+    }
+
+
+# --------------------------------------------------
+# TOP SKILLS
+# --------------------------------------------------
+
+def get_top_skills(
+    resume_text,
+    limit=10
+):
+
+    skills = extract_skills(
+        resume_text
+    )
+
+    return skills[:limit]

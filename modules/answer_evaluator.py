@@ -1,103 +1,592 @@
+import re
 import google.generativeai as genai
 
 
+# ==========================================================
+# SKIP WORDS
+# ==========================================================
+
+SKIP_WORDS = [
+
+    "",
+
+    "-",
+
+    "no",
+
+    "n/a",
+
+    "na",
+
+    "skip",
+
+    "skipped",
+
+    "none"
+]
+
+
+# ==========================================================
+# CHECK SKIPPED ANSWER
+# ==========================================================
+
+def is_skipped_answer(answer):
+
+    if answer is None:
+        return True
+
+    answer = str(answer).strip().lower()
+
+    return answer in SKIP_WORDS
+
+
+# ==========================================================
+# ATTEMPTED / SKIPPED COUNTS
+# ==========================================================
+
+def get_attempted_and_skipped(
+        questions,
+        answers
+):
+
+    attempted = 0
+    skipped = 0
+
+    for question in questions:
+
+        answer = answers.get(
+            question,
+            ""
+        )
+
+        if is_skipped_answer(
+                answer
+        ):
+            skipped += 1
+        else:
+            attempted += 1
+
+    return attempted, skipped
+
+
+# ==========================================================
+# BUILD INTERVIEW DATA
+# ==========================================================
+
+def build_interview_content(
+        questions,
+        answers
+):
+
+    content = ""
+
+    for index, question in enumerate(
+            questions,
+            start=1
+    ):
+
+        answer = answers.get(
+            question,
+            "No Answer"
+        )
+
+        content += f"""
+
+Question {index}
+----------------------------------------
+
+Question:
+{question}
+
+Candidate Answer:
+{answer}
+
+"""
+
+    return content
+
+
+# ==========================================================
+# QUESTION TEMPLATE
+# ==========================================================
+
+def build_question_template(
+        total_questions
+):
+
+    template = ""
+
+    for i in range(
+            1,
+            total_questions + 1
+    ):
+
+        template += f"""
+
+Question {i} Score: X/10
+
+Model Answer:
+[Ideal Answer]
+
+Feedback:
+[Feedback]
+
+"""
+
+    return template
+
+
+# ==========================================================
+# MAIN EVALUATION
+# ==========================================================
+
 def evaluate_full_interview(
-    questions,
-    answers
+        questions,
+        answers
 ):
 
     try:
 
-        interview_content = ""
+        attempted_questions, skipped_questions = (
+            get_attempted_and_skipped(
+                questions,
+                answers
+            )
+        )
 
-        for index, question in enumerate(
-            questions,
-            start=1
-        ):
+        total_questions = len(
+            questions
+        )
 
-            answer = answers.get(question, "No")
+        interview_content = (
+            build_interview_content(
+                questions,
+                answers
+            )
+        )
 
-            interview_content += f"""
-Question {index}:
-{question}
-
-Answer:
-{answer}
-
-=================================
-"""
-
-        # Dynamically build the per-question score lines and model answers
-        # so the model knows exactly how many to output
-        per_question_format = ""
-        for i in range(1, len(questions) + 1):
-            per_question_format += f"Question {i} Score: X/10\nModel Answer: [Provide a brief, ideal technical answer here]\n\n"
+        question_template = (
+            build_question_template(
+                total_questions
+            )
+        )
 
         prompt = f"""
-You are an expert technical interviewer.
+You are a Senior Technical Interviewer.
 
-Evaluate the COMPLETE interview.
+Evaluate the interview professionally.
 
-Interview Questions and Answers:
+================================================
+
+TOTAL QUESTIONS:
+{total_questions}
+
+ANSWERED:
+{attempted_questions}
+
+SKIPPED:
+{skipped_questions}
+
+================================================
+
+INTERVIEW DATA
 
 {interview_content}
 
-Evaluation Instructions:
+================================================
 
-1. Consider ALL answers together.
+SCORING RULES
 
-2. If answer is:
-"No"
-or
-"-"
-consider that question skipped and give it 0/10.
+If answer is:
 
-3. Provide scores out of 10.
+-
+No
+N/A
+NA
+Skip
+Skipped
+None
+Empty
 
-4. Use EXACTLY this format (replace every X with the actual number only, and provide the ideal answer):
+Then:
 
-Per-Question Scores:
-{per_question_format}
+Question Score = 0/10
+
+================================================
+
+Evaluate EACH question individually.
+
+For EVERY question provide:
+
+1. Question Score
+2. Model Answer
+3. Feedback
+
+================================================
+
+OUTPUT FORMAT
+
+{question_template}
+
 Technical Score: X/10
 
 Communication Score: X/10
 
 Confidence Score: X/10
 
-Questions Attempted: X/{len(questions)}
+Overall Score: X/10
 
-Questions Skipped: X/{len(questions)}
+Questions Attempted: {attempted_questions}/{total_questions}
+
+Questions Skipped: {skipped_questions}/{total_questions}
 
 Strengths:
 - Point 1
 - Point 2
+- Point 3
 
 Weaknesses:
 - Point 1
 - Point 2
+- Point 3
 
 Suggestions:
 - Point 1
 - Point 2
+- Point 3
 
-5. Be realistic.
+================================================
 
-6. Do not give perfect scores unless deserved.
+IMPORTANT RULES
 
-7. Evaluate the entire interview as a whole.
+- Use realistic scores.
+- Don't give everyone high scores.
+- Evaluate technical accuracy.
+- Evaluate communication quality.
+- Evaluate confidence level.
+- Keep model answers concise.
+- Feedback should explain mistakes.
+- Follow format exactly.
 """
 
         model = genai.GenerativeModel(
             "gemini-2.5-flash"
         )
 
-        response = model.generate_content(prompt)
+        response = model.generate_content(
+            prompt
+        )
 
         return response.text
 
     except Exception as e:
 
-        return (
-            f"Evaluation Error:\n\n"
-            f"{str(e)}"
+        return f"""
+Evaluation Error
+
+{str(e)}
+"""
+
+
+# ==========================================================
+# EXTRACT SCORE
+# ==========================================================
+
+def extract_score(
+        evaluation_text,
+        score_name
+):
+
+    try:
+
+        pattern = rf"{score_name}:\s*(\d+)"
+
+        match = re.search(
+            pattern,
+            evaluation_text,
+            re.IGNORECASE
         )
+
+        if match:
+
+            return int(
+                match.group(1)
+            )
+
+    except Exception:
+        pass
+
+    return 0
+
+
+# ==========================================================
+# OVERALL SCORE
+# ==========================================================
+
+def extract_overall_score(
+        evaluation_text
+):
+
+    return extract_score(
+        evaluation_text,
+        "Overall Score"
+    )
+
+
+# ==========================================================
+# TECHNICAL SCORE
+# ==========================================================
+
+def extract_technical_score(
+        evaluation_text
+):
+
+    return extract_score(
+        evaluation_text,
+        "Technical Score"
+    )
+
+
+# ==========================================================
+# COMMUNICATION SCORE
+# ==========================================================
+
+def extract_communication_score(
+        evaluation_text
+):
+
+    return extract_score(
+        evaluation_text,
+        "Communication Score"
+    )
+
+
+# ==========================================================
+# CONFIDENCE SCORE
+# ==========================================================
+
+def extract_confidence_score(
+        evaluation_text
+):
+
+    return extract_score(
+        evaluation_text,
+        "Confidence Score"
+    )
+
+
+# ==========================================================
+# STRENGTHS
+# ==========================================================
+
+def extract_strengths(
+        evaluation_text
+):
+
+    try:
+
+        match = re.search(
+
+            r"Strengths:(.*?)Weaknesses:",
+
+            evaluation_text,
+
+            re.IGNORECASE |
+            re.DOTALL
+        )
+
+        if match:
+
+            return (
+                match.group(1)
+                .strip()
+            )
+
+    except Exception:
+        pass
+
+    return ""
+
+
+# ==========================================================
+# WEAKNESSES
+# ==========================================================
+
+def extract_weaknesses(
+        evaluation_text
+):
+
+    try:
+
+        match = re.search(
+
+            r"Weaknesses:(.*?)Suggestions:",
+
+            evaluation_text,
+
+            re.IGNORECASE |
+            re.DOTALL
+        )
+
+        if match:
+
+            return (
+                match.group(1)
+                .strip()
+            )
+
+    except Exception:
+        pass
+
+    return ""
+
+
+# ==========================================================
+# SUGGESTIONS
+# ==========================================================
+
+def extract_suggestions(
+        evaluation_text
+):
+
+    try:
+
+        match = re.search(
+
+            r"Suggestions:(.*)",
+
+            evaluation_text,
+
+            re.IGNORECASE |
+            re.DOTALL
+        )
+
+        if match:
+
+            return (
+                match.group(1)
+                .strip()
+            )
+
+    except Exception:
+        pass
+
+    return ""
+
+
+# ==========================================================
+# QUESTION SCORES
+# ==========================================================
+
+def extract_question_scores(
+        evaluation_text
+):
+
+    scores = {}
+
+    try:
+
+        matches = re.findall(
+
+            r"Question\s+(\d+)\s+Score:\s*(\d+)",
+
+            evaluation_text,
+
+            re.IGNORECASE
+        )
+
+        for question_no, score in matches:
+
+            scores[
+                f"Question {question_no}"
+            ] = int(score)
+
+    except Exception:
+        pass
+
+    return scores
+
+
+# ==========================================================
+# ATTEMPTED QUESTIONS
+# ==========================================================
+
+def extract_attempted_questions(
+        evaluation_text
+):
+
+    try:
+
+        match = re.search(
+
+            r"Questions Attempted:\s*(\d+)\/(\d+)",
+
+            evaluation_text,
+
+            re.IGNORECASE
+        )
+
+        if match:
+
+            return int(
+                match.group(1)
+            )
+
+    except Exception:
+        pass
+
+    return 0
+
+
+# ==========================================================
+# SKIPPED QUESTIONS
+# ==========================================================
+
+def extract_skipped_questions(
+        evaluation_text
+):
+
+    try:
+
+        match = re.search(
+
+            r"Questions Skipped:\s*(\d+)\/(\d+)",
+
+            evaluation_text,
+
+            re.IGNORECASE
+        )
+
+        if match:
+
+            return int(
+                match.group(1)
+            )
+
+    except Exception:
+        pass
+
+    return 0
+
+
+# ==========================================================
+# COMPLETION %
+# ==========================================================
+
+def calculate_completion_percentage(
+        attempted,
+        total_questions
+):
+
+    if total_questions <= 0:
+        return 0
+
+    return round(
+
+        (
+            attempted /
+            total_questions
+        ) * 100,
+
+        2
+    )

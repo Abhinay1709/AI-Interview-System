@@ -1,86 +1,414 @@
 import re
 from datetime import datetime
 
-def generate_full_report(
-    questions,
-    answers,
-    evaluation
+
+# ==========================================================
+# SAFE EXTRACT
+# ==========================================================
+
+def safe_extract(
+        pattern,
+        text,
+        default="Not Available"
 ):
 
-    report = "============================================================\n"
-    report += "                 AI INTERVIEW SYSTEM REPORT                 \n"
-    report += "============================================================\n"
-    report += f"Generated On: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+    try:
 
-    # ── EXTRACT OVERALL SCORES FOR THE TOP OF THE REPORT
-    tech_score = "N/A"
-    comm_score = "N/A"
-    conf_score = "N/A"
-    
-    if evaluation:
-        ts = re.search(r"Technical Score:\s*(.*?/10)", evaluation, re.IGNORECASE)
-        cs = re.search(r"Communication Score:\s*(.*?/10)", evaluation, re.IGNORECASE)
-        cfs = re.search(r"Confidence Score:\s*(.*?/10)", evaluation, re.IGNORECASE)
-        
-        if ts: tech_score = ts.group(1)
-        if cs: comm_score = cs.group(1)
-        if cfs: conf_score = cfs.group(1)
+        match = re.search(
+            pattern,
+            str(text),
+            re.IGNORECASE | re.DOTALL
+        )
 
-    report += "--- OVERALL SCORES ---\n"
-    report += f"Technical Score:     {tech_score}\n"
-    report += f"Communication Score: {comm_score}\n"
-    report += f"Confidence Score:    {conf_score}\n\n"
+        if match:
 
-    report += "============================================================\n"
-    report += "             QUESTIONS, ANSWERS & FEEDBACK                  \n"
-    report += "============================================================\n\n"
+            value = match.group(1).strip()
 
-    # ── CHECK IF QUESTIONS EXIST
+            if value:
+                return value
+
+    except Exception:
+        pass
+
+    return default
+
+
+# ==========================================================
+# QUESTION SCORE
+# ==========================================================
+
+def extract_question_score(
+        evaluation_text,
+        question_number
+):
+
+    return safe_extract(
+
+        rf"Question\s+{question_number}\s+Score:\s*(\d+\/10)",
+
+        evaluation_text,
+
+        "0/10"
+    )
+
+
+# ==========================================================
+# MODEL ANSWER
+# ==========================================================
+
+def extract_model_answer(
+        evaluation_text,
+        question_number
+):
+
+    try:
+
+        pattern = (
+
+            rf"Question\s+{question_number}\s+Score:.*?"
+
+            rf"Model Answer:\s*(.*?)"
+
+            rf"Feedback:"
+        )
+
+        match = re.search(
+
+            pattern,
+
+            evaluation_text,
+
+            re.IGNORECASE |
+            re.DOTALL
+        )
+
+        if match:
+
+            return match.group(
+                1
+            ).strip()
+
+    except Exception:
+        pass
+
+    return "Not Available"
+
+
+# ==========================================================
+# FEEDBACK
+# ==========================================================
+
+def extract_feedback(
+        evaluation_text,
+        question_number
+):
+
+    try:
+
+        pattern = (
+
+            rf"Question\s+{question_number}\s+Score:.*?"
+
+            rf"Feedback:\s*(.*?)"
+
+            rf"(Question\s+\d+\s+Score:|Technical Score:)"
+        )
+
+        match = re.search(
+
+            pattern,
+
+            evaluation_text,
+
+            re.IGNORECASE |
+            re.DOTALL
+        )
+
+        if match:
+
+            return match.group(
+                1
+            ).strip()
+
+    except Exception:
+        pass
+
+    return "Not Available"
+
+
+# ==========================================================
+# FULL REPORT GENERATOR
+# ==========================================================
+
+def generate_full_report(
+        questions,
+        answers,
+        evaluation
+):
+
+    report = ""
+
+    # ======================================================
+    # HEADER
+    # ======================================================
+
+    report += "=" * 80 + "\n"
+    report += "AI INTERVIEW PREPARATION SYSTEM REPORT\n"
+    report += "=" * 80 + "\n\n"
+
+    report += (
+        f"Interview Date : "
+        f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+    )
+
+    # ======================================================
+    # OVERALL SCORES
+    # ======================================================
+
+    technical_score = safe_extract(
+        r"Technical Score:\s*(.*?/10)",
+        evaluation
+    )
+
+    communication_score = safe_extract(
+        r"Communication Score:\s*(.*?/10)",
+        evaluation
+    )
+
+    confidence_score = safe_extract(
+        r"Confidence Score:\s*(.*?/10)",
+        evaluation
+    )
+
+    overall_score = safe_extract(
+        r"Overall Score:\s*(.*?/10)",
+        evaluation
+    )
+
+    attempted_questions = safe_extract(
+        r"Questions Attempted:\s*(.*)",
+        evaluation,
+        "0"
+    )
+
+    skipped_questions = safe_extract(
+        r"Questions Skipped:\s*(.*)",
+        evaluation,
+        "0"
+    )
+
+    # ======================================================
+    # COMPLETION %
+    # ======================================================
+
+    completion_percentage = "0"
+
+    try:
+
+        attempted_match = re.search(
+            r"Questions Attempted:\s*(\d+)\/(\d+)",
+            evaluation,
+            re.IGNORECASE
+        )
+
+        if attempted_match:
+
+            attempted = int(
+                attempted_match.group(1)
+            )
+
+            total = int(
+                attempted_match.group(2)
+            )
+
+            if total > 0:
+
+                completion_percentage = str(
+                    round(
+                        (
+                            attempted /
+                            total
+                        ) * 100,
+                        2
+                    )
+                )
+
+    except Exception:
+        pass
+
+    report += "OVERALL EVALUATION\n"
+    report += "-" * 50 + "\n"
+
+    report += (
+        f"Technical Score      : {technical_score}\n"
+    )
+
+    report += (
+        f"Communication Score  : {communication_score}\n"
+    )
+
+    report += (
+        f"Confidence Score     : {confidence_score}\n"
+    )
+
+    report += (
+        f"Overall Score        : {overall_score}\n"
+    )
+
+    report += (
+        f"Answered Questions   : {attempted_questions}\n"
+    )
+
+    report += (
+        f"Skipped Questions    : {skipped_questions}\n"
+    )
+
+    report += (
+        f"Completion Percentage: "
+        f"{completion_percentage}%\n\n"
+    )
+
+    # ======================================================
+    # QUESTION ANALYSIS
+    # ======================================================
+
+    report += "=" * 80 + "\n"
+    report += "QUESTION-WISE ANALYSIS\n"
+    report += "=" * 80 + "\n\n"
+
     if not questions:
-        report += "No questions or answers found for this record.\n"
-        report += "(This is likely an older or incomplete database entry).\n\n"
+
+        report += "No Questions Found.\n\n"
+
     else:
-        # ── LOOP THROUGH EACH QUESTION TO EXTRACT INDIVIDUAL DATA
-        for index, question in enumerate(questions, start=1):
 
-            answer = answers.get(question, "*(No answer provided)*")
-            
-            q_score = "N/A"
-            model_answer = "*(Not available for this record)*"
-            
-            if evaluation:
-                # Extract score for this specific question
-                sm = re.search(rf"Question {index} Score:\s*(.*?/10)", evaluation, re.IGNORECASE)
-                if sm: 
-                    q_score = sm.group(1)
-                
-                # Extract the correct model answer for this specific question
-                am = re.search(rf"Question {index} Score:.*?Model Answer:\s*(.*?)(?=\nQuestion \d+ Score|\nTechnical Score|\nCommunication Score|\nQuestions Attempted|\Z)", evaluation, re.DOTALL | re.IGNORECASE)
-                if am: 
-                    model_answer = am.group(1).strip()
+        for index, question in enumerate(
+                questions,
+                start=1
+        ):
 
-            report += f"QUESTION {index}:\n"
-            report += f"{question}\n\n"
-            
-            report += "YOUR ANSWER:\n"
-            report += f"{answer}\n\n"
-            
-            report += f"SCORE OBTAINED: {q_score}\n\n"
-            
-            report += "CORRECT / MODEL ANSWER:\n"
-            report += f"{model_answer}\n\n"
-            
+            answer = answers.get(
+                question,
+                "No Answer"
+            )
+
+            score = extract_question_score(
+                evaluation,
+                index
+            )
+
+            model_answer = extract_model_answer(
+                evaluation,
+                index
+            )
+
+            feedback = extract_feedback(
+                evaluation,
+                index
+            )
+
+            report += (
+                f"QUESTION {index}\n"
+            )
+
             report += "-" * 60 + "\n\n"
 
-    # ── APPEND THE FULL RAW EVALUATION AT THE BOTTOM
-    report += "============================================================\n"
-    report += "                 FULL EVALUATION SUMMARY                    \n"
-    report += "============================================================\n\n"
-    
-    report += evaluation if evaluation else "No evaluation available."
-    
-    report += "\n\n============================================================\n"
-    report += "                       END OF REPORT                        \n"
-    report += "============================================================\n"
+            report += (
+                f"Question:\n"
+                f"{question}\n\n"
+            )
+
+            report += (
+                f"My Answer:\n"
+                f"{answer}\n\n"
+            )
+
+            report += (
+                f"Question Score:\n"
+                f"{score}\n\n"
+            )
+
+            report += (
+                f"Expected / Model Answer:\n"
+                f"{model_answer}\n\n"
+            )
+
+            report += (
+                f"Feedback:\n"
+                f"{feedback}\n\n"
+            )
+
+    # ======================================================
+    # STRENGTHS
+    # ======================================================
+
+    strengths = safe_extract(
+
+        r"Strengths:(.*?)Weaknesses:",
+
+        evaluation,
+
+        "Not Available"
+    )
+
+    report += "=" * 80 + "\n"
+    report += "STRENGTHS\n"
+    report += "=" * 80 + "\n\n"
+
+    report += strengths + "\n\n"
+
+    # ======================================================
+    # WEAKNESSES
+    # ======================================================
+
+    weaknesses = safe_extract(
+
+        r"Weaknesses:(.*?)Suggestions:",
+
+        evaluation,
+
+        "Not Available"
+    )
+
+    report += "=" * 80 + "\n"
+    report += "WEAKNESSES\n"
+    report += "=" * 80 + "\n\n"
+
+    report += weaknesses + "\n\n"
+
+    # ======================================================
+    # SUGGESTIONS
+    # ======================================================
+
+    suggestions = safe_extract(
+
+        r"Suggestions:(.*)",
+
+        evaluation,
+
+        "Not Available"
+    )
+
+    report += "=" * 80 + "\n"
+    report += "SUGGESTIONS\n"
+    report += "=" * 80 + "\n\n"
+
+    report += suggestions + "\n\n"
+
+    # ======================================================
+    # RAW EVALUATION
+    # ======================================================
+
+    report += "=" * 80 + "\n"
+    report += "RAW EVALUATION DATA\n"
+    report += "=" * 80 + "\n\n"
+
+    report += str(evaluation)
+
+    report += "\n\n"
+
+    report += "=" * 80 + "\n"
+    report += "END OF REPORT\n"
+    report += "=" * 80 + "\n"
 
     return report
