@@ -161,6 +161,7 @@ default_states = {
     "skills": [],
     "projects": [],
     "questions": [],
+    "show_evaluation_button": False,
     "job_role": "AI Engineer",
     "current_question_index": 0,
     "question_answers": {},
@@ -185,15 +186,29 @@ st.sidebar.markdown("---")
 
 page = st.sidebar.radio(
     "Navigation",
-    [   
+    [
         "🏠 Dashboard",
         "📄 Resume Analysis",
         "🎯 Interview",
         "📊 Evaluation",
         "📈 Analytics",
         "📚 History"
-    ]
+    ],
+    index=[
+        "🏠 Dashboard",
+        "📄 Resume Analysis",
+        "🎯 Interview",
+        "📊 Evaluation",
+        "📈 Analytics",
+        "📚 History"
+    ].index(
+        st.session_state.get(
+            "current_page",
+            "📄 Resume Analysis"
+        )
+    )
 )
+st.session_state.current_page = page
 
 st.sidebar.markdown("---")
 st.sidebar.markdown(
@@ -637,19 +652,39 @@ if page == "🎯 Interview":
                     if st.button("🎯 Finish Interview", type="primary"):
                         st.session_state.question_answers[current_question] = answer_text
                         st.session_state.interview_finished = True
-                        st.success("Interview Completed Successfully")
+                        st.success(
+                            "✅ Interview Completed Successfully!"
+                        )
+                        st.info(
+                            "📊 Your interview is ready for evaluation."
+                        )
+                        st.balloons()
+                        st.session_state.show_evaluation_button = True
                         st.rerun()
 
             # LIVE INTERVIEW STATS
-            st.divider()
+            if st.session_state.show_evaluation_button:
+                st.divider()
+                st.success(
+                    "✅ Interview Completed Successfully"
+                )
+                st.info(
+                    "📊 Ready to generate your evaluation report."
+                )
+                if st.button(
+                    "🚀 Go To Evaluation",
+                    type="primary"
+                ):
+                    st.session_state.current_page = "📊 Evaluation"
+                    st.session_state.show_evaluation_button = False
+                    st.rerun()
 
+            st.divider()
             stats = get_interview_statistics(
                 st.session_state.questions,
                 st.session_state.question_answers
             )
-
             s1, s2, s3 = st.columns(3)
-
             with s1:
                 st.metric("Answered", stats["answered_questions"])
             with s2:
