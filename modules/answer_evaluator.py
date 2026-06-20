@@ -2,6 +2,49 @@ import re
 import google.generativeai as genai
 
 
+def clean_evaluation_text(text):
+    
+    if not text:
+        return ""
+
+    # Remove markdown bold
+    text = re.sub(r"\*\*", "", text)
+
+    # Remove markdown headings
+    text = re.sub(
+        r"^#+\s*",
+        "",
+        text,
+        flags=re.MULTILINE
+    )
+
+    # Convert markdown bullets to bullet symbol
+    text = re.sub(
+        r"^\s*[\*\-]\s+",
+        "• ",
+        text,
+        flags=re.MULTILINE
+    )
+
+    # Remove code fences
+    text = text.replace("```", "")
+
+    # Remove separators
+    text = text.replace("---", "")
+
+    # Remove tabs
+    text = text.replace("\t", " ")
+
+    # Remove excessive blank lines
+    text = re.sub(
+        r"\n{3,}",
+        "\n\n",
+        text
+    )
+
+    return text.strip()
+
+
 # ==========================================================
 # SKIP WORDS
 # ==========================================================
@@ -241,19 +284,19 @@ Questions Attempted: {attempted_questions}/{total_questions}
 Questions Skipped: {skipped_questions}/{total_questions}
 
 Strengths:
-- Point 1
-- Point 2
-- Point 3
+Point 1
+Point 2
+Point 3
 
 Weaknesses:
-- Point 1
-- Point 2
-- Point 3
+Point 1
+Point 2
+Point 3
 
 Suggestions:
-- Point 1
-- Point 2
-- Point 3
+Point 1
+Point 2
+Point 3
 
 ================================================
 
@@ -267,17 +310,48 @@ IMPORTANT RULES
 - Keep model answers concise.
 - Feedback should explain mistakes.
 - Follow format exactly.
-"""
+- DO NOT use * or ** anywhere.
+- DO NOT use numbered lists.
+- Return plain text only.
+- Follow the exact format.
 
+IMPORTANT:
+
+Use this format:
+
+Strengths:
+• Point 1
+• Point 2
+• Point 3
+
+Weaknesses:
+• Point 1
+• Point 2
+• Point 3
+
+Suggestions:
+• Point 1
+• Point 2
+• Point 3
+
+Do not use:
+**
+#
+Markdown formatting
+
+Use only the bullet symbol: •
+"""
         model = genai.GenerativeModel(
             "gemini-2.5-flash"
         )
-
         response = model.generate_content(
             prompt
+        )       
+        evaluation = response.text
+        evaluation = clean_evaluation_text(
+            evaluation
         )
-
-        return response.text
+        return evaluation
 
     except Exception as e:
 
@@ -590,3 +664,4 @@ def calculate_completion_percentage(
 
         2
     )
+

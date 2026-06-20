@@ -132,9 +132,11 @@ def generate_fallback_questions():
 # ==========================================================
 
 def generate_questions(
-        resume_text,
-        skills=None,
-        projects=None
+    resume_text,
+    skills,
+    projects,
+    difficulty="Intermediate",
+    job_role="AI Engineer"
 ):
 
     try:
@@ -151,9 +153,126 @@ def generate_questions(
 
         project_text = "\n".join(projects)
 
-        prompt = f"""
-You are a Senior Technical Interviewer.
+        difficulty_instruction = ""
 
+        if difficulty == "Beginner":
+
+            difficulty_instruction = """
+        Generate simple interview questions.
+
+        Focus on:
+        - Basic concepts
+        - Definitions
+        - Fundamental understanding
+
+        Avoid advanced concepts.
+        """
+
+        elif difficulty == "Intermediate":
+
+            difficulty_instruction = """
+        Generate moderately challenging interview questions.
+
+        Focus on:
+        - Practical usage
+        - Real-world examples
+        - Problem solving
+        """
+
+        else:
+
+            difficulty_instruction = """
+        Generate advanced interview questions.
+
+        Focus on:
+        - Deep technical concepts
+        - Optimization
+        - System design thinking
+        - Advanced problem solving
+        """
+
+        role_instruction = ""
+
+        if job_role == "AI Engineer":
+
+            role_instruction = """
+        Focus on:
+
+        - Machine Learning
+        - Deep Learning
+        - Python
+        - AI Projects
+        - NLP
+        """
+
+        elif job_role == "ML Engineer":
+
+            role_instruction = """
+        Focus on:
+
+        - Machine Learning
+        - Model Training
+        - Feature Engineering
+        - Scikit-Learn
+        - Deployment
+        """
+
+        elif job_role == "Data Analyst":
+
+            role_instruction = """
+        Focus on:
+
+        - SQL
+        - Excel
+        - Data Visualization
+        - Statistics
+        - Power BI
+        """
+
+        elif job_role == "Python Developer":
+
+            role_instruction = """
+        Focus on:
+
+        - Python
+        - OOP
+        - APIs
+        - Flask
+        - Django
+        """
+
+        elif job_role == "Software Engineer":
+
+            role_instruction = """
+        Focus on:
+
+        - DSA
+        - OOP
+        - DBMS
+        - Operating Systems
+        - Computer Networks
+        """
+
+        elif job_role == "Full Stack Developer":
+
+            role_instruction = """
+        Focus on:
+
+        - HTML
+        - CSS
+        - JavaScript
+        - React
+        - Node.js
+        - Databases
+        """
+
+        prompt = f"""
+        
+
+
+You are a Senior Technical Interviewer.
+{difficulty_instruction}
+{role_instruction}
 Analyze the candidate resume carefully.
 
 ================================================

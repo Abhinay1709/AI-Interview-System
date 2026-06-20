@@ -122,7 +122,7 @@ DATABASE_NAME = (
 # ==========================================================
 
 REPORT_FILE_NAME = (
-    "Interview_Report.txt"
+    "Interview_Report.docx"
 )
 
 HISTORY_REPORT_PREFIX = (

@@ -4,6 +4,39 @@ import pandas as pd
 
 
 # ==========================================================
+# CLEAN TEXT
+# ==========================================================
+
+def clean_text(text):
+
+    if not text:
+        return ""
+
+    cleaned_lines = []
+
+    for line in str(text).splitlines():
+
+        line = line.strip()
+
+        if not line:
+            continue
+
+        line = re.sub(
+            r"^[*\-•\s]+",
+            "",
+            line
+        )
+
+        cleaned_lines.append(
+            f"• {line}"
+        )
+
+    return "\n".join(
+        cleaned_lines
+    )
+
+
+# ==========================================================
 # SAFE EXTRACT
 # ==========================================================
 
@@ -33,148 +66,44 @@ def safe_extract(
 
     return default
 
-
 # ==========================================================
-# QUESTION SCORE
+# AUTO WIDTH
 # ==========================================================
 
-def extract_question_score(
-        evaluation,
-        question_number
+def auto_adjust_width(
+        worksheet
 ):
 
-    try:
+    for column in worksheet.columns:
 
-        match = re.search(
+        max_length = 0
 
-            rf"Question\s+{question_number}\s+Score:\s*(\d+\/10)",
-
-            evaluation,
-
-            re.IGNORECASE
+        column_letter = (
+            column[0].column_letter
         )
 
-        if match:
-            return match.group(1)
+        for cell in column:
 
-    except Exception:
-        pass
+            try:
 
-    return "0/10"
+                if cell.value:
 
+                    max_length = max(
+                        max_length,
+                        len(
+                            str(cell.value)
+                        )
+                    )
 
-# ==========================================================
-# MODEL ANSWER
-# ==========================================================
+            except Exception:
+                pass
 
-def extract_model_answer(
-        evaluation,
-        question_number
-):
-
-    try:
-
-        pattern = (
-
-            rf"Question\s+{question_number}\s+Score:.*?"
-
-            rf"Model Answer:\s*(.*?)"
-
-            rf"Feedback:"
+        worksheet.column_dimensions[
+            column_letter
+        ].width = min(
+            max_length + 5,
+            60
         )
-
-        match = re.search(
-
-            pattern,
-
-            evaluation,
-
-            re.IGNORECASE |
-            re.DOTALL
-        )
-
-        if match:
-
-            return (
-                match.group(1)
-                .strip()
-            )
-
-    except Exception:
-        pass
-
-    return "Not Available"
-
-
-# ==========================================================
-# FEEDBACK
-# ==========================================================
-
-def extract_feedback(
-        evaluation,
-        question_number
-):
-
-    try:
-
-        pattern = (
-
-            rf"Question\s+{question_number}\s+Score:.*?"
-
-            rf"Feedback:\s*(.*?)"
-
-            rf"(Question\s+\d+\s+Score:|Technical Score:)"
-        )
-
-        match = re.search(
-
-            pattern,
-
-            evaluation,
-
-            re.IGNORECASE |
-            re.DOTALL
-        )
-
-        if match:
-
-            return (
-                match.group(1)
-                .strip()
-            )
-
-    except Exception:
-        pass
-
-    return "Not Available"
-
-
-# ==========================================================
-# COMPLETION %
-# ==========================================================
-
-def calculate_completion(
-        answered,
-        total_questions
-):
-
-    try:
-
-        if total_questions <= 0:
-            return 0
-
-        return round(
-
-            (
-                answered /
-                total_questions
-            ) * 100,
-
-            2
-        )
-
-    except Exception:
-        return 0
 
 
 # ==========================================================
@@ -186,7 +115,7 @@ def export_history_to_excel(
         output_file="Interview_History.xlsx"
 ):
 
-    rows = []
+    summary_rows = []
 
     # ======================================================
     # NO RECORDS
@@ -199,18 +128,12 @@ def export_history_to_excel(
             "Interview ID",
             "Interview Date",
 
-            "Question",
-            "My Answer",
-
-            "Question Score",
-            "Model Answer",
-            "Feedback",
-
             "Technical Score",
             "Communication Score",
             "Confidence Score",
             "Overall Score",
 
+            "Total Questions",
             "Answered Questions",
             "Skipped Questions",
             "Completion %",
@@ -238,11 +161,6 @@ def export_history_to_excel(
             interview_id = record[0]
             interview_date = record[1]
 
-            questions_json = record[2]
-            answers_json = record[3]
-
-            evaluation = record[4]
-
             technical_score = record[5]
             communication_score = record[6]
             confidence_score = record[7]
@@ -254,130 +172,73 @@ def export_history_to_excel(
 
             completion_percentage = record[12]
 
-            strengths = record[13]
-            weaknesses = record[14]
-            suggestions = record[15]
+            strengths = clean_text(
+                record[13]
+            )
 
-            try:
+            weaknesses = clean_text(
+                record[14]
+            )
 
-                questions = json.loads(
-                    questions_json
-                )
+            suggestions = clean_text(
+                record[15]
+            )
 
-            except Exception:
+            summary_rows.append({
 
-                questions = []
+                "Interview ID":
+                    interview_id,
 
-            try:
+                "Interview Date":
+                    interview_date,
 
-                answers = json.loads(
-                    answers_json
-                )
+                "Technical Score":
+                    technical_score,
 
-            except Exception:
+                "Communication Score":
+                    communication_score,
 
-                answers = {}
+                "Confidence Score":
+                    confidence_score,
 
-            # ==========================================
-            # QUESTION ROWS
-            # ==========================================
+                "Overall Score":
+                    overall_score,
 
-            for index, question in enumerate(
-                    questions,
-                    start=1
-            ):
+                "Total Questions":
+                    total_questions,
 
-                answer = answers.get(
-                    question,
-                    "No Answer"
-                )
+                "Answered Questions":
+                    answered_questions,
 
-                question_score = (
-                    extract_question_score(
-                        evaluation,
-                        index
-                    )
-                )
+                "Skipped Questions":
+                    skipped_questions,
 
-                model_answer = (
-                    extract_model_answer(
-                        evaluation,
-                        index
-                    )
-                )
+                "Completion %":
+                    completion_percentage,
 
-                feedback = (
-                    extract_feedback(
-                        evaluation,
-                        index
-                    )
-                )
+                "Strengths":
+                    strengths,
 
-                rows.append({
+                "Weaknesses":
+                    weaknesses,
 
-                    "Interview ID":
-                        interview_id,
-
-                    "Interview Date":
-                        interview_date,
-
-                    "Question":
-                        question,
-
-                    "My Answer":
-                        answer,
-
-                    "Question Score":
-                        question_score,
-
-                    "Model Answer":
-                        model_answer,
-
-                    "Feedback":
-                        feedback,
-
-                    "Technical Score":
-                        technical_score,
-
-                    "Communication Score":
-                        communication_score,
-
-                    "Confidence Score":
-                        confidence_score,
-
-                    "Overall Score":
-                        overall_score,
-
-                    "Answered Questions":
-                        answered_questions,
-
-                    "Skipped Questions":
-                        skipped_questions,
-
-                    "Completion %":
-                        completion_percentage,
-
-                    "Strengths":
-                        strengths,
-
-                    "Weaknesses":
-                        weaknesses,
-
-                    "Suggestions":
-                        suggestions
-                })
+                "Suggestions":
+                    suggestions
+            })
 
         except Exception:
             continue
 
     # ======================================================
-    # CREATE DATAFRAME
+    # DATAFRAME
     # ======================================================
 
-    df = pd.DataFrame(rows)
+    summary_df = pd.DataFrame(
+        summary_rows
+    )
 
     # ======================================================
-    # SAVE EXCEL
+    # EXPORT EXCEL
     # ======================================================
 
     with pd.ExcelWriter(
@@ -385,54 +246,18 @@ def export_history_to_excel(
             engine="openpyxl"
     ) as writer:
 
-        df.to_excel(
-
+        summary_df.to_excel(
             writer,
-
-            sheet_name="Interview History",
-
+            sheet_name="Interview Summary",
             index=False
         )
 
         worksheet = writer.sheets[
-            "Interview History"
+            "Interview Summary"
         ]
 
-        # ==============================================
-        # AUTO COLUMN WIDTH
-        # ==============================================
-
-        for column in worksheet.columns:
-
-            max_length = 0
-
-            column_letter = (
-                column[0].column_letter
-            )
-
-            for cell in column:
-
-                try:
-
-                    if cell.value:
-
-                        max_length = max(
-
-                            max_length,
-
-                            len(
-                                str(cell.value)
-                            )
-                        )
-
-                except Exception:
-                    pass
-
-            worksheet.column_dimensions[
-                column_letter
-            ].width = min(
-                max_length + 5,
-                60
-            )
+        auto_adjust_width(
+            worksheet
+        )
 
     return output_file

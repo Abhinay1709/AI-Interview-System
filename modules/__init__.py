@@ -229,6 +229,14 @@ from .score_parser import (
 )
 
 # ==========================================================
+# RESUME INSIGHTS
+# ==========================================================
+
+from .resume_insights import (
+    generate_resume_insights
+)
+
+# ==========================================================
 # PACKAGE VERSION
 # ==========================================================
 
@@ -341,4 +349,9 @@ __all__ = [
     "get_feedback",
     "get_question_analysis",
     "get_all_question_analysis"
+    
+    # resume insights
+    
+    "generate_resume_insights"
 ]
+

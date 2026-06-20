@@ -1,6 +1,9 @@
 import sqlite3
 import json
 from datetime import datetime
+from modules.answer_evaluator import (
+    clean_evaluation_text
+)
 
 DB_NAME = "interview_data.db"
 
@@ -147,7 +150,9 @@ def save_interview(
 
         json.dumps(answers),
 
-        evaluation,
+        clean_evaluation_text(
+            evaluation
+        ),
 
         technical_score,
         communication_score,

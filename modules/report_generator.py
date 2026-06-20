@@ -1,414 +1,559 @@
 import re
+import io
 from datetime import datetime
 
+from docx import Document
+from docx.shared import Pt, RGBColor, Inches
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml.ns import qn
+from docx.oxml import OxmlElement
+
 
 # ==========================================================
-# SAFE EXTRACT
+# COLOUR PALETTE
 # ==========================================================
 
-def safe_extract(
-        pattern,
-        text,
-        default="Not Available"
-):
+COLOR_DARK_BLUE   = RGBColor(0x1F, 0x49, 0x7D)   # headings
+COLOR_MID_BLUE    = RGBColor(0x2E, 0x74, 0xB5)    # sub-headings / stats
+COLOR_ORANGE      = RGBColor(0xC0, 0x50, 0x00)    # feedback label
+COLOR_DARK_GRAY   = RGBColor(0x40, 0x40, 0x40)    # body labels
+COLOR_MID_GRAY    = RGBColor(0x70, 0x70, 0x70)    # secondary text
+COLOR_WHITE       = RGBColor(0xFF, 0xFF, 0xFF)
+COLOR_GREEN       = RGBColor(0x37, 0x5A, 0x2E)    # strengths heading
 
+HEX_HEADER_DARK   = "1F497D"    # dark-blue table header bg
+HEX_HEADER_MID    = "2E74B5"    # mid-blue table header bg
+HEX_CELL_LIGHT    = "DEEAF1"    # light blue cell bg (scores)
+HEX_CELL_MID      = "EBF3FB"    # very light blue cell bg (stats)
+HEX_SEPARATOR     = "BBBBBB"    # horizontal-rule colour
+
+
+# ==========================================================
+# HELPERS — XML / STYLING
+# ==========================================================
+
+def _set_cell_bg(cell, hex_color):
+    """Apply a solid background fill to a table cell."""
+    tc = cell._tc
+    tcPr = tc.get_or_add_tcPr()
+    shd = OxmlElement("w:shd")
+    shd.set(qn("w:val"),   "clear")
+    shd.set(qn("w:color"), "auto")
+    shd.set(qn("w:fill"),  hex_color)
+    tcPr.append(shd)
+
+
+def _set_cell_padding(cell,
+                    top=80, bottom=80,
+                    left=120, right=120):
+    """Set inner cell margins (EMU-ish units in docx = twentieths of a point)."""
+    tc = cell._tc
+    tcPr = tc.get_or_add_tcPr()
+    tcMar = OxmlElement("w:tcMar")
+    for edge, val in (
+        ("top",    top),
+        ("bottom", bottom),
+        ("left",   left),
+        ("right",  right),
+    ):
+        el = OxmlElement(f"w:{edge}")
+        el.set(qn("w:w"),    str(val))
+        el.set(qn("w:type"), "dxa")
+        tcMar.append(el)
+    tcPr.append(tcMar)
+
+
+def _add_horizontal_rule(doc, color=HEX_SEPARATOR):
+    """Draw a thin 1-pt bottom-border paragraph as a visual divider."""
+    para = doc.add_paragraph()
+    para.paragraph_format.space_before = Pt(4)
+    para.paragraph_format.space_after  = Pt(6)
+    pPr   = para._p.get_or_add_pPr()
+    pBdr  = OxmlElement("w:pBdr")
+    btm   = OxmlElement("w:bottom")
+    btm.set(qn("w:val"),   "single")
+    btm.set(qn("w:sz"),    "4")
+    btm.set(qn("w:space"), "1")
+    btm.set(qn("w:color"), color)
+    pBdr.append(btm)
+    pPr.append(pBdr)
+
+
+def _spacer(doc, before=4, after=4):
+    para = doc.add_paragraph()
+    para.paragraph_format.space_before = Pt(before)
+    para.paragraph_format.space_after  = Pt(after)
+    return para
+
+
+# ==========================================================
+# HELPERS — CONTENT BLOCKS
+# ==========================================================
+
+def _add_section_heading(doc, text, level=1):
+    """
+    Bold section heading.
+      level 1 — 14pt dark-blue  (top-level section)
+      level 2 — 12pt mid-blue   (question header)
+      level 3 — 11pt dark-gray  (sub-label)
+    """
+    para = doc.add_paragraph()
+    para.paragraph_format.space_before = Pt(10)
+    para.paragraph_format.space_after  = Pt(4)
+
+    run = para.add_run(text)
+    run.bold = True
+
+    if level == 1:
+        run.font.size  = Pt(14)
+        run.font.color.rgb = COLOR_DARK_BLUE
+    elif level == 2:
+        run.font.size  = Pt(12)
+        run.font.color.rgb = COLOR_MID_BLUE
+    else:
+        run.font.size  = Pt(11)
+        run.font.color.rgb = COLOR_DARK_GRAY
+
+    return para
+
+
+def _add_label_value(doc, label, value, label_color=None):
+    """One line with a **bold label** then plain value."""
+    para = doc.add_paragraph()
+    para.paragraph_format.space_before = Pt(2)
+    para.paragraph_format.space_after  = Pt(2)
+
+    lr = para.add_run(f"{label}:  ")
+    lr.bold = True
+    lr.font.size = Pt(11)
+    lr.font.color.rgb = label_color or COLOR_DARK_GRAY
+
+    vr = para.add_run(str(value) if value else "—")
+    vr.font.size = Pt(11)
+    return para
+
+
+def _add_block_content(doc, label, text, label_color=None, indent=True):
+    """Bold label on its own line, then indented body text."""
+    lp = doc.add_paragraph()
+    lp.paragraph_format.space_before = Pt(4)
+    lp.paragraph_format.space_after  = Pt(1)
+    lr = lp.add_run(f"{label}:")
+    lr.bold = True
+    lr.font.size  = Pt(11)
+    lr.font.color.rgb = label_color or COLOR_DARK_GRAY
+
+    cp = doc.add_paragraph()
+    cp.paragraph_format.space_before = Pt(1)
+    cp.paragraph_format.space_after  = Pt(4)
+    if indent:
+        cp.paragraph_format.left_indent = Inches(0.2)
+    cr = cp.add_run(str(text) if text else "—")
+    cr.font.size = Pt(11)
+    return cp
+
+
+def _add_bullet_points(doc, text):
+    
+    if not text:
+        return
+
+    text = str(text)
+
+    text = text.replace(
+        "• ",
+        "\n• "
+    )
+
+    text = re.sub(
+        r"\n+",
+        "\n",
+        text
+    )
+
+    for line in text.splitlines():
+
+        line = re.sub(
+            r"^[•\-\*]\s*",
+            "",
+            line
+        ).strip()
+
+        if not line:
+            continue
+        
+        para=doc.add_paragraph()
+        #para.paragraph_format.left_indent = Inches(0.25)
+        #para.paragraph_format.space_after = Pt(2)
+        
+        run=para.add_run(f"• {line}")
+        
+        run.font.size = Pt(11)
+
+# ==========================================================
+# HELPERS — TWO-ROW SUMMARY TABLE
+# ==========================================================
+
+def _build_summary_table(doc, headers, values,
+                        hdr_hex, cell_hex,
+                        hdr_color=None, val_color=None):
+    """
+    Create a 2-row (header + value) table.
+    headers / values must have the same length (2 or 4 cols).
+    """
+    n   = len(headers)
+    tbl = doc.add_table(rows=2, cols=n)
+    tbl.style = "Table Grid"
+
+    # Centre the whole table
+    tblEl = tbl._tbl
+    tPr   = tblEl.find(qn("w:tblPr"))
+    if tPr is None:
+        tPr = OxmlElement("w:tblPr")
+        tblEl.insert(0, tPr)
+    jc = OxmlElement("w:jc")
+    jc.set(qn("w:val"), "center")
+    tPr.append(jc)
+
+    for i, (hdr, val) in enumerate(zip(headers, values)):
+
+        # ---- header row ----
+        hc = tbl.rows[0].cells[i]
+        _set_cell_bg(hc, hdr_hex)
+        _set_cell_padding(hc)
+        hp = hc.paragraphs[0]
+        hp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        hr = hp.add_run(hdr)
+        hr.bold = True
+        hr.font.size  = Pt(10)
+        hr.font.color.rgb = hdr_color or COLOR_WHITE
+
+        # ---- value row ----
+        vc = tbl.rows[1].cells[i]
+        _set_cell_bg(vc, cell_hex)
+        _set_cell_padding(vc, top=120, bottom=120)
+        vp = vc.paragraphs[0]
+        vp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        vr = vp.add_run(str(val))
+        vr.bold = True
+        vr.font.size  = Pt(15)
+        vr.font.color.rgb = val_color or COLOR_MID_BLUE
+
+    return tbl
+
+
+# ==========================================================
+# REGEX HELPERS (kept identical to original)
+# ==========================================================
+
+def safe_extract(pattern, text, default="Not Available"):
     try:
-
         match = re.search(
             pattern,
             str(text),
             re.IGNORECASE | re.DOTALL
         )
-
         if match:
-
             value = match.group(1).strip()
-
             if value:
                 return value
-
     except Exception:
         pass
-
     return default
 
 
-# ==========================================================
-# QUESTION SCORE
-# ==========================================================
-
-def extract_question_score(
-        evaluation_text,
-        question_number
-):
-
+def extract_question_score(evaluation_text, question_number):
     return safe_extract(
-
         rf"Question\s+{question_number}\s+Score:\s*(\d+\/10)",
-
         evaluation_text,
-
         "0/10"
     )
 
 
-# ==========================================================
-# MODEL ANSWER
-# ==========================================================
-
-def extract_model_answer(
-        evaluation_text,
-        question_number
-):
-
+def extract_model_answer(evaluation_text, question_number):
     try:
-
         pattern = (
-
             rf"Question\s+{question_number}\s+Score:.*?"
-
             rf"Model Answer:\s*(.*?)"
-
             rf"Feedback:"
         )
-
         match = re.search(
-
-            pattern,
-
-            evaluation_text,
-
-            re.IGNORECASE |
-            re.DOTALL
+            pattern, evaluation_text,
+            re.IGNORECASE | re.DOTALL
         )
-
         if match:
-
-            return match.group(
-                1
-            ).strip()
-
+            return match.group(1).strip()
     except Exception:
         pass
-
     return "Not Available"
 
 
-# ==========================================================
-# FEEDBACK
-# ==========================================================
-
-def extract_feedback(
-        evaluation_text,
-        question_number
-):
-
+def extract_feedback(evaluation_text, question_number):
     try:
-
         pattern = (
-
             rf"Question\s+{question_number}\s+Score:.*?"
-
             rf"Feedback:\s*(.*?)"
-
             rf"(Question\s+\d+\s+Score:|Technical Score:)"
         )
-
         match = re.search(
-
-            pattern,
-
-            evaluation_text,
-
-            re.IGNORECASE |
-            re.DOTALL
+            pattern, evaluation_text,
+            re.IGNORECASE | re.DOTALL
         )
-
         if match:
-
-            return match.group(
-                1
-            ).strip()
-
+            return match.group(1).strip()
     except Exception:
         pass
-
     return "Not Available"
 
 
 # ==========================================================
-# FULL REPORT GENERATOR
+# MAIN REPORT GENERATOR
 # ==========================================================
 
-def generate_full_report(
-        questions,
-        answers,
-        evaluation
-):
-
-    report = ""
-
-    # ======================================================
-    # HEADER
-    # ======================================================
-
-    report += "=" * 80 + "\n"
-    report += "AI INTERVIEW PREPARATION SYSTEM REPORT\n"
-    report += "=" * 80 + "\n\n"
-
-    report += (
-        f"Interview Date : "
-        f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
-    )
-
-    # ======================================================
-    # OVERALL SCORES
-    # ======================================================
-
-    technical_score = safe_extract(
-        r"Technical Score:\s*(.*?/10)",
-        evaluation
-    )
-
-    communication_score = safe_extract(
-        r"Communication Score:\s*(.*?/10)",
-        evaluation
-    )
-
-    confidence_score = safe_extract(
-        r"Confidence Score:\s*(.*?/10)",
-        evaluation
-    )
-
-    overall_score = safe_extract(
-        r"Overall Score:\s*(.*?/10)",
-        evaluation
-    )
-
-    attempted_questions = safe_extract(
-        r"Questions Attempted:\s*(.*)",
-        evaluation,
-        "0"
-    )
-
-    skipped_questions = safe_extract(
-        r"Questions Skipped:\s*(.*)",
-        evaluation,
-        "0"
-    )
-
-    # ======================================================
-    # COMPLETION %
-    # ======================================================
-
-    completion_percentage = "0"
-
+def generate_full_report(questions, answers, evaluation):
+    """
+    Build a professional .docx report and return it as bytes.
+    Compatible with Streamlit's st.download_button(data=...).
+    """
+    # ---- sanitise evaluation text ----
     try:
-
-        attempted_match = re.search(
-            r"Questions Attempted:\s*(\d+)\/(\d+)",
-            evaluation,
-            re.IGNORECASE
-        )
-
-        if attempted_match:
-
-            attempted = int(
-                attempted_match.group(1)
-            )
-
-            total = int(
-                attempted_match.group(2)
-            )
-
-            if total > 0:
-
-                completion_percentage = str(
-                    round(
-                        (
-                            attempted /
-                            total
-                        ) * 100,
-                        2
-                    )
-                )
-
+        from modules.answer_evaluator import clean_evaluation_text
+        evaluation = clean_evaluation_text(evaluation)
     except Exception:
         pass
 
-    report += "OVERALL EVALUATION\n"
-    report += "-" * 50 + "\n"
+    doc = Document()
 
-    report += (
-        f"Technical Score      : {technical_score}\n"
+    # ----------------------------------------------------------
+    # PAGE SETUP — US Letter, 1-inch margins
+    # ----------------------------------------------------------
+    sec = doc.sections[0]
+    sec.page_width      = Inches(8.5)
+    sec.page_height     = Inches(11)
+    sec.top_margin      = Inches(1.0)
+    sec.bottom_margin   = Inches(1.0)
+    sec.left_margin     = Inches(1.0)
+    sec.right_margin    = Inches(1.0)
+
+    # Default font
+    doc.styles["Normal"].font.name = "Calibri"
+    doc.styles["Normal"].font.size = Pt(11)
+
+    # ==========================================================
+    # TITLE BLOCK
+    # ==========================================================
+
+    title_p = doc.add_paragraph()
+    title_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    title_p.paragraph_format.space_before = Pt(0)
+    title_p.paragraph_format.space_after  = Pt(4)
+    tr = title_p.add_run("AI INTERVIEW PREPARATION SYSTEM")
+    tr.bold       = True
+    tr.font.size  = Pt(20)
+    tr.font.color.rgb = COLOR_DARK_BLUE
+
+    sub_p = doc.add_paragraph()
+    sub_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    sub_p.paragraph_format.space_after = Pt(2)
+    sr = sub_p.add_run("Interview Evaluation Report")
+    sr.font.size  = Pt(13)
+    sr.font.color.rgb = COLOR_DARK_GRAY
+
+    date_p = doc.add_paragraph()
+    date_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    date_p.paragraph_format.space_after = Pt(0)
+    dr = date_p.add_run(
+        "Generated on: "
+        + datetime.now().strftime("%B %d, %Y  |  %I:%M %p")
+    )
+    dr.font.size  = Pt(10)
+    dr.font.color.rgb = COLOR_MID_GRAY
+    dr.italic = True
+
+    _add_horizontal_rule(doc, color="1F497D")
+
+    # ==========================================================
+    # SECTION 1 — OVERALL EVALUATION SCORES
+    # ==========================================================
+
+    _add_section_heading(doc, "OVERALL EVALUATION SCORES")
+
+    technical_score    = safe_extract(r"Technical Score:\s*(\d+\/10)",    evaluation, "N/A")
+    communication_score= safe_extract(r"Communication Score:\s*(\d+\/10)", evaluation, "N/A")
+    confidence_score   = safe_extract(r"Confidence Score:\s*(\d+\/10)",   evaluation, "N/A")
+    overall_score      = safe_extract(r"Overall Score:\s*(\d+\/10)",      evaluation, "N/A")
+
+    _build_summary_table(
+        doc,
+        headers=["Technical Score", "Communication Score",
+                "Confidence Score", "Overall Score"],
+        values=[technical_score, communication_score,
+                confidence_score, overall_score],
+        hdr_hex=HEX_HEADER_DARK,
+        cell_hex=HEX_CELL_LIGHT,
     )
 
-    report += (
-        f"Communication Score  : {communication_score}\n"
+    _spacer(doc, before=10, after=4)
+
+    # ==========================================================
+    # SECTION 2 — INTERVIEW STATISTICS
+    # ==========================================================
+
+    _add_section_heading(doc, "INTERVIEW STATISTICS")
+
+    attempted_match = re.search(
+        r"Questions Attempted:\s*(\d+)\/(\d+)",
+        evaluation, re.IGNORECASE
+    )
+    skipped_match = re.search(
+        r"Questions Skipped:\s*(\d+)\/(\d+)",
+        evaluation, re.IGNORECASE
     )
 
-    report += (
-        f"Confidence Score     : {confidence_score}\n"
+    total_q   = attempted_match.group(2) if attempted_match else str(len(questions))
+    attempted = attempted_match.group(1) if attempted_match else "0"
+    skipped   = skipped_match.group(1)   if skipped_match   else "0"
+
+    completion_pct = "0%"
+    try:
+        if attempted_match:
+            a = int(attempted_match.group(1))
+            t = int(attempted_match.group(2))
+            if t > 0:
+                completion_pct = f"{round((a / t) * 100, 1)}%"
+    except Exception:
+        pass
+
+    _build_summary_table(
+        doc,
+        headers=["Total Questions", "Answered", "Skipped", "Completion %"],
+        values=[total_q, attempted, skipped, completion_pct],
+        hdr_hex=HEX_HEADER_MID,
+        cell_hex=HEX_CELL_MID,
     )
 
-    report += (
-        f"Overall Score        : {overall_score}\n"
-    )
+    _spacer(doc, before=8, after=4)
 
-    report += (
-        f"Answered Questions   : {attempted_questions}\n"
-    )
+    # ==========================================================
+    # PAGE BREAK
+    # ==========================================================
+    doc.add_page_break()
 
-    report += (
-        f"Skipped Questions    : {skipped_questions}\n"
-    )
+    # ==========================================================
+    # SECTION 3 — QUESTION-WISE ANALYSIS
+    # ==========================================================
 
-    report += (
-        f"Completion Percentage: "
-        f"{completion_percentage}%\n\n"
-    )
-
-    # ======================================================
-    # QUESTION ANALYSIS
-    # ======================================================
-
-    report += "=" * 80 + "\n"
-    report += "QUESTION-WISE ANALYSIS\n"
-    report += "=" * 80 + "\n\n"
+    _add_section_heading(doc, "QUESTION-WISE ANALYSIS")
+    _add_horizontal_rule(doc)
 
     if not questions:
-
-        report += "No Questions Found.\n\n"
-
+        doc.add_paragraph("No questions available.")
     else:
+        for idx, question in enumerate(questions, start=1):
 
-        for index, question in enumerate(
-                questions,
-                start=1
-        ):
+            answer       = answers.get(question, "No Answer")
+            score        = extract_question_score(evaluation, idx)
+            model_answer = extract_model_answer(evaluation, idx)
+            feedback     = extract_feedback(evaluation, idx)
 
-            answer = answers.get(
-                question,
-                "No Answer"
+            # ---- Question header (bold, dark-blue) ----
+            qh = doc.add_paragraph()
+            qh.paragraph_format.space_before = Pt(12)
+            qh.paragraph_format.space_after  = Pt(3)
+            qhr = qh.add_run(f"Question {idx}   |   Score: {score}")
+            qhr.bold       = True
+            qhr.font.size  = Pt(12)
+            qhr.font.color.rgb = COLOR_DARK_BLUE
+
+            # ---- Question text ----
+            _add_label_value(doc, "Question", question)
+
+            # ---- My Answer ----
+            _add_label_value(doc, "My Answer", answer)
+
+            # ---- Model Answer ----
+            _add_block_content(
+                doc, "Model Answer", model_answer,
+                label_color=COLOR_MID_BLUE
             )
 
-            score = extract_question_score(
-                evaluation,
-                index
+            # ---- Feedback ----
+            _add_block_content(
+                doc, "Feedback", feedback,
+                label_color=COLOR_ORANGE
             )
 
-            model_answer = extract_model_answer(
-                evaluation,
-                index
-            )
+            # ---- Thin separator between questions ----
+            _add_horizontal_rule(doc)
 
-            feedback = extract_feedback(
-                evaluation,
-                index
-            )
+    # ==========================================================
+    # PAGE BREAK
+    # ==========================================================
+    doc.add_page_break()
 
-            report += (
-                f"QUESTION {index}\n"
-            )
+    # ==========================================================
+    # SECTION 4 — STRENGTHS
+    # ==========================================================
 
-            report += "-" * 60 + "\n\n"
-
-            report += (
-                f"Question:\n"
-                f"{question}\n\n"
-            )
-
-            report += (
-                f"My Answer:\n"
-                f"{answer}\n\n"
-            )
-
-            report += (
-                f"Question Score:\n"
-                f"{score}\n\n"
-            )
-
-            report += (
-                f"Expected / Model Answer:\n"
-                f"{model_answer}\n\n"
-            )
-
-            report += (
-                f"Feedback:\n"
-                f"{feedback}\n\n"
-            )
-
-    # ======================================================
-    # STRENGTHS
-    # ======================================================
+    _add_section_heading(doc, "STRENGTHS")
 
     strengths = safe_extract(
-
         r"Strengths:(.*?)Weaknesses:",
-
-        evaluation,
-
-        "Not Available"
+        evaluation, "Not Available"
     )
+    _add_bullet_points(doc, strengths)
 
-    report += "=" * 80 + "\n"
-    report += "STRENGTHS\n"
-    report += "=" * 80 + "\n\n"
+    _spacer(doc, before=6, after=4)
 
-    report += strengths + "\n\n"
+    # ==========================================================
+    # SECTION 5 — WEAKNESSES
+    # ==========================================================
 
-    # ======================================================
-    # WEAKNESSES
-    # ======================================================
+    _add_section_heading(doc, "WEAKNESSES")
 
     weaknesses = safe_extract(
-
         r"Weaknesses:(.*?)Suggestions:",
-
-        evaluation,
-
-        "Not Available"
+        evaluation, "Not Available"
     )
+    _add_bullet_points(doc, weaknesses)
 
-    report += "=" * 80 + "\n"
-    report += "WEAKNESSES\n"
-    report += "=" * 80 + "\n\n"
+    _spacer(doc, before=6, after=4)
 
-    report += weaknesses + "\n\n"
+    # ==========================================================
+    # SECTION 6 — SUGGESTIONS
+    # ==========================================================
 
-    # ======================================================
-    # SUGGESTIONS
-    # ======================================================
+    _add_section_heading(doc, "SUGGESTIONS FOR IMPROVEMENT")
 
     suggestions = safe_extract(
-
         r"Suggestions:(.*)",
-
-        evaluation,
-
-        "Not Available"
+        evaluation, "Not Available"
     )
+    _add_bullet_points(doc, suggestions)
 
-    report += "=" * 80 + "\n"
-    report += "SUGGESTIONS\n"
-    report += "=" * 80 + "\n\n"
+    _spacer(doc, before=12, after=4)
 
-    report += suggestions + "\n\n"
+    # ==========================================================
+    # FOOTER LINE
+    # ==========================================================
 
-    # ======================================================
-    # RAW EVALUATION
-    # ======================================================
+    _add_horizontal_rule(doc, color="2E74B5")
 
-    report += "=" * 80 + "\n"
-    report += "RAW EVALUATION DATA\n"
-    report += "=" * 80 + "\n\n"
+    fp = doc.add_paragraph()
+    fp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    fp.paragraph_format.space_before = Pt(2)
+    fr = fp.add_run(
+        "AI Interview Preparation System  |  Abhinay Andhavarapu"
+    )
+    fr.font.size = Pt(9)
+    fr.font.color.rgb = COLOR_MID_GRAY
+    fr.italic = True
 
-    report += str(evaluation)
+    # ==========================================================
+    # SERIALISE TO BYTES
+    # ==========================================================
 
-    report += "\n\n"
-
-    report += "=" * 80 + "\n"
-    report += "END OF REPORT\n"
-    report += "=" * 80 + "\n"
-
-    return report
+    buf = io.BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+    return buf.getvalue()

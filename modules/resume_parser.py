@@ -178,6 +178,53 @@ def extract_name(resume_text):
 
 
 # ==========================================================
+# PROJECT TITLE DETECTION
+# ==========================================================
+
+def is_project_title(line):
+    """
+    Returns True only for lines that look like a project
+    title — short, starts with a capital letter, no trailing
+    period, and not beginning with a common description verb
+    or conjunction.
+    """
+
+    if not line:
+        return False
+
+    # Must be between 3 and 70 characters
+    if len(line) < 3 or len(line) > 70:
+        return False
+
+    # Descriptions end with a period; titles don't
+    if line.endswith("."):
+        return False
+
+    # Title must start with an uppercase letter or digit
+    if not (line[0].isupper() or line[0].isdigit()):
+        return False
+
+    # Skip lines that begin with common description words
+    skip_starters = [
+        "Used ", "Built ", "Created ", "Developed ",
+        "Implemented ", "Designed ", "Deployed ",
+        "Integrated ", "Automated ", "Analyzed ",
+        "Trained ", "Tested ", "Managed ",
+        "And ", "Or ", "The ", "A ", "An ",
+        "Automatically ", "Captures ", "This ",
+        "It ", "With ", "Using ", "By ",
+        "For ", "In ", "To ", "That ",
+        "Which ", "When ", "Where ", "How "
+    ]
+
+    for starter in skip_starters:
+        if line.startswith(starter):
+            return False
+
+    return True
+
+
+# ==========================================================
 # PROJECT EXTRACTION
 # ==========================================================
 
@@ -218,7 +265,8 @@ def extract_projects(resume_text):
 
                     line = line.strip()
 
-                    if len(line) > 5:
+                    # Keep only title-like lines
+                    if is_project_title(line):
 
                         projects.append(
                             line
