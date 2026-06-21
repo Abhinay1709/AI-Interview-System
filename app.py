@@ -5,8 +5,7 @@
 # ==================================================
 
 import streamlit as st
-import plotly.express as px
-import plotly.graph_objects as go
+
 import pandas as pd
 import google.generativeai as genai
 import re
@@ -54,6 +53,30 @@ from modules.score_parser import (
     get_feedback
 )
 
+from modules.charts import (
+    create_radar_chart,
+    create_score_trend_chart,
+    create_skill_trend_chart
+)
+
+from modules.dashboard import (
+    calculate_readiness,
+    show_dashboard_metrics,
+    show_resume_summary,
+    show_candidate_details,
+    show_system_status,
+    show_interview_tracker
+)
+
+from modules.profile_card import (
+    show_profile_card,
+    show_readiness_card
+)
+
+from modules.recommendation_engine import (
+    calculate_role_matches,
+    calculate_resume_match
+)
 # ==================================================
 # GEMINI CONFIGURATION
 # ==================================================
@@ -229,9 +252,7 @@ st.sidebar.markdown(
 # ==================================================
 
 if page == "🏠 Dashboard":
-
     st.header("🏠 Dashboard")
-
     records = get_all_interviews()
     stats = calculate_statistics(records)
 
@@ -256,43 +277,19 @@ if page == "🏠 Dashboard":
         trend_df = pd.DataFrame(trend_data)        
 
     # TOP METRICS
-    col1, col2, col3, col4 = st.columns(4)
+    latest_score = (
+        records[0][8]
+        if records else 0
+    )
 
-    with col1:
-        st.metric("Total Interviews", stats.get("total_interviews", 0))
-
-    with col2:
-        st.metric("Average Score", f"{stats.get('average_overall', 0)}/10")
-
-    with col3:
-        st.metric("Best Score", f"{stats.get('best_score', 0)}/10")
-
-    with col4:
-        latest_score = (
-            records[0][8]
-            if records else 0
+    show_dashboard_metrics(
+        stats,
+        latest_score,
+        st.session_state.get(
+            "ats_score",
+            0
         )
-        readiness = round(
-            (
-                st.session_state.get(
-                    "ats_score",
-                    0
-                )
-                +
-                (
-                    float(
-                        latest_score
-                    ) * 10
-                )
-            ) / 2,
-            2
-        )
-        st.metric(
-            "Readiness",
-            f"{readiness}%"
-        )
-        
-
+    )
     st.divider()
 
     # RESUME INFORMATION
@@ -301,63 +298,136 @@ if page == "🏠 Dashboard":
     resume_details = st.session_state.get("resume_details", {})
     skills = st.session_state.get("skills", [])
     projects = st.session_state.get("projects", [])
+    show_resume_summary(
+        skills,
+        projects,
+        latest_score
+    )
 
-    c1, c2, c3, c4 = st.columns(4)
+    readiness = calculate_readiness(
+        st.session_state.get(
+            "ats_score",
+            0
+        ),
+        latest_score
+    )
 
-    with c1:
-        st.metric("Skills Found", len(skills))
+    show_profile_card(
+        resume_details,
+        skills,
+        projects,
+        st.session_state.get(
+            "ats_score",
+            0
+        ),
+        readiness
+    )
 
-    with c2:
-        st.metric("Projects Found", len(projects))
-
-    with c3:
-        st.metric("Questions", 10)
-
-    with c4:
-        latest_score = (records[0][8] if records else 0)
-        st.metric("Latest Score", latest_score)
+    show_readiness_card(
+        readiness
+    )
 
     st.divider()
+    show_interview_tracker(
+        bool(
+            st.session_state.resume_text
+        ),
+        bool(
+            st.session_state.questions
+        ),
+        st.session_state.interview_finished,
+        st.session_state.interview_completed
+    )
+    
+    st.divider()
+    st.subheader(
+        "🎯 Recommended Roles"
+    )
+    role_matches = calculate_role_matches(
+        skills
+    )
+    for role in role_matches[:3]:
+        st.write(
+            f"### {role['role']}"
+        )
+        st.progress(
+            role["score"] / 100
+        )
+        st.caption(
+            f"{role['score']}% Match"
+        )
 
-    # CANDIDATE DETAILS
-    if resume_details:
-        st.subheader("👤 Candidate")
-        col1, col2 = st.columns(2)
+        st.divider()
+        st.subheader(
+            "🏅 Achievements"
+        )
+        if st.session_state.ats_score >= 80:
+            st.success(
+                "ATS Expert Badge"
+            )
+        if len(skills) >= 10:
+            st.success(
+                "Skill Master Badge"
+            )
+        if st.session_state.interview_completed:
+            st.success(
+                "Interview Completed Badge"
+            )
+        if records:
+            latest_score = float(
+                records[0][8]
+            )
+            if latest_score >= 8:
+                st.success(
+                    "Top Performer Badge"
+                )
 
-        with col1:
-            st.write(f"**Name:** {resume_details.get('name', 'N/A')}")
-            st.write(f"**Email:** {resume_details.get('email', 'N/A')}")
+    st.divider()
+    st.subheader(
+        "📊 Resume Match Score"
+    )
+    match_score = calculate_resume_match(
+        skills,
+        st.session_state.job_role
+    )
+    st.metric(
+        "Match Score",
+        f"{match_score}%"
+    )
+    st.progress(
+        match_score / 100
+    )
 
-        with col2:
-            st.write(f"**Phone:** {resume_details.get('phone', 'N/A')}")
+    st.divider()
+    st.subheader(
+        "📚 Career Recommendation"
+    )
+    if match_score >= 80:
+        st.success(
+            "Your profile is strongly aligned with this role."
+        )
+    elif match_score >= 60:
+        st.warning(
+            "You are close. Improve missing skills for better readiness."
+        )
     else:
-        st.info("Upload a resume to view candidate details.")
+        st.error(
+            "Significant skill gaps exist for this role."
+        )
 
     st.divider()
-
     # SYSTEM STATUS
     st.subheader("🚀 System Status")
 
-    status_col1, status_col2, status_col3 = st.columns(3)
-
-    with status_col1:
-        if st.session_state.resume_text:
-            st.success("Resume Uploaded")
-        else:
-            st.warning("Resume Not Uploaded")
-
-    with status_col2:
-        if st.session_state.questions:
-            st.success("Questions Generated")
-        else:
-            st.warning("Questions Not Generated")
-
-    with status_col3:
-        if st.session_state.interview_completed:
-            st.success("Interview Completed")
-        else:
-            st.warning("Interview Not Completed")
-
+    show_system_status(
+        bool(
+            st.session_state.resume_text
+        ),
+        bool(
+            st.session_state.questions
+        ),
+        st.session_state.interview_completed
+    )
 # ==================================================
 # PART 2: RESUME ANALYSIS
 # ==================================================
@@ -839,61 +909,25 @@ if page == "📊 Evaluation":
             # PERFORMANCE RADAR CHART
             st.divider()
             st.subheader("🎯 Performance Radar")
-            
-            technical = float(scores.get("technical", 0))
-            communication = float(scores.get("communication", 0))
-            confidence = float(scores.get("confidence", 0))
-            
-            # Derived values
-            project_knowledge = round((technical + confidence) / 2, 1)
-            problem_solving = round((technical + communication) / 2, 1)
-            
-            categories = [
-                "Technical",
-                "Communication",
-                "Confidence",
-                "Project Knowledge",
-                "Problem Solving"
-            ]
-
-            values = [
+            technical = float(
+                scores.get("technical", 0)
+            )
+            communication = float(
+                scores.get("communication", 0)
+            )
+            confidence = float(
+                scores.get("confidence", 0)
+            )
+            fig = create_radar_chart(
                 technical,
                 communication,
-                confidence,
-                project_knowledge,
-                problem_solving
-            ]
-
-            values.append(values[0])
-            categories.append(categories[0])
-
-            fig = go.Figure()
-
-            fig.add_trace(
-                go.Scatterpolar(
-                    r=values,
-                    theta=categories,
-                    fill="toself",
-                    name="Performance"
-                )
+                confidence
             )
-
-            fig.update_layout(
-                polar=dict(
-                    radialaxis=dict(
-                        visible=True,
-                        range=[0, 10]
-                    )
-                ),
-                showlegend=False,
-                height=500
-            )
-
             st.plotly_chart(
                 fig,
                 use_container_width=True
             )
-            
+
             # READINESS SCORE
             st.divider()
             st.subheader("🎯 Interview Readiness Score")
@@ -923,6 +957,37 @@ if page == "📊 Evaluation":
                 
             st.progress(min(readiness_score / 100, 1.0))
             st.caption(f"Readiness Level: {readiness_score}%")
+
+            st.divider()
+
+            st.subheader(
+                "🧠 AI Insights"
+            )
+
+            overall = float(
+                scores.get(
+                    "overall",
+                    0
+                )
+            )
+
+            if overall >= 8:
+
+                st.success(
+                    "Strong interview performance."
+                )
+
+            elif overall >= 6:
+
+                st.warning(
+                    "Average performance with room for improvement."
+                )
+
+            else:
+
+                st.error(
+                    "Interview performance needs improvement."
+                )
 
             # SKILL GAP ANALYSIS
             st.divider()
@@ -1037,11 +1102,22 @@ if page == "📈 Analytics":
     stats = calculate_statistics(records)
 
     latest_record = None
+    best_record = None
+    if records:
+        best_record = max(
+            records,
+            key=lambda x: float(
+                x[8] or 0
+            )
+        )
+        best_record = normalize_interview_record(
+            best_record
+        )
+
     if records:
         latest_record = normalize_interview_record(
             records[0]
         )
-
     normalized_records = [
         normalize_interview_record(record)
         for record in records
@@ -1072,6 +1148,36 @@ if page == "📈 Analytics":
         st.metric("Avg Confidence", f"{stats.get('average_confidence', 0)}/10")
 
     row2_col1, row2_col2, row2_col3, row2_col4 = st.columns(4)
+    st.divider()
+    st.subheader(
+        "🏆 Best Interview"
+    )
+    if best_record:
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.metric(
+                "Best Score",
+                f"{best_record['overall_score']}/10"
+            )
+        with c2:
+            st.metric(
+                "Answered",
+                best_record[
+                    "answered_questions"
+                ]
+            )
+        with c3:
+            st.metric(
+                "Completion %",
+                best_record[
+                    "completion_percentage"
+                ]
+            )
+        st.success(
+            best_record[
+                "strengths"
+            ]
+        )
 
     with row2_col1:
         st.metric("Avg Overall", f"{stats.get('average_overall', 0)}/10")
@@ -1087,62 +1193,86 @@ if page == "📈 Analytics":
         st.divider()
 
         st.subheader("🎯 Latest Interview Radar")
-
-        technical = float(latest_record.get("technical_score", 0))
-        communication = float(latest_record.get("communication_score", 0))
-        confidence = float(latest_record.get("confidence_score", 0))
-
-        project_knowledge = round((technical + confidence) / 2, 1)
-        problem_solving = round((technical + communication) / 2, 1)
-
-        categories = [
-            "Technical",
-            "Communication",
-            "Confidence",
-            "Project Knowledge",
-            "Problem Solving"
-        ]
-
-        values = [
-            technical,
-            communication,
-            confidence,
-            project_knowledge,
-            problem_solving
-        ]
-
-        values.append(values[0])
-        categories.append(categories[0])
-
-        fig = go.Figure()
-
-        fig.add_trace(
-            go.Scatterpolar(
-                r=values,
-                theta=categories,
-                fill="toself"
+        technical = float(
+            latest_record.get(
+                "technical_score",
+                0
             )
         )
-
-        fig.update_layout(
-            polar=dict(
-                radialaxis=dict(
-                    visible=True,
-                    range=[0, 10]
-                )
-            ),
-            showlegend=False
+        communication = float(
+            latest_record.get(
+                "communication_score",
+                0
+            )
         )
-
+        confidence = float(
+            latest_record.get(
+                "confidence_score",
+                0
+            )
+        )
+        fig = create_radar_chart(
+            technical,
+            communication,
+            confidence
+        )
         st.plotly_chart(
             fig,
             use_container_width=True
         )
-    
+
     # SCORE TREND CHART
     if trend_data:
         trend_df = pd.DataFrame(trend_data)
         
+
+        st.divider()
+        st.subheader(
+            "🧠 Insights"
+        )
+        avg_tech = stats.get(
+            "average_technical",
+            0
+        )
+        avg_comm = stats.get(
+            "average_communication",
+            0
+        )
+        avg_conf = stats.get(
+            "average_confidence",
+            0
+        )
+        best_area = max(
+            {
+                "Technical": avg_tech,
+                "Communication": avg_comm,
+                "Confidence": avg_conf
+            },
+            key=lambda x: {
+                "Technical": avg_tech,
+                "Communication": avg_comm,
+                "Confidence": avg_conf
+            }[x]
+        )
+        weakest_area = min(
+            {
+                "Technical": avg_tech,
+                "Communication": avg_comm,
+                "Confidence": avg_conf
+            },
+
+            key=lambda x: {
+                "Technical": avg_tech,
+                "Communication": avg_comm,
+                "Confidence": avg_conf
+            }[x]
+        )
+        st.success(
+            f"Strongest Area: {best_area}"
+        )
+        st.warning(
+            f"Needs Improvement: {weakest_area}"
+        )
         # performance highlights
         st.divider()
         st.subheader("📌 Performance Highlights")
@@ -1171,14 +1301,9 @@ if page == "📈 Analytics":
         st.divider()
         st.subheader("📈 Performance Trend")
 
-        fig = px.line(
-            trend_df,
-            x="Interview",
-            y="Overall",
-            markers=True,
-            title="Overall Score Trend"
+        fig = create_score_trend_chart(
+            trend_df
         )
-
         st.plotly_chart(
             fig,
             use_container_width=True
@@ -1187,15 +1312,8 @@ if page == "📈 Analytics":
         # Multi line chart
         st.subheader("📊 Skill Score Trends")
 
-        multi_fig = px.line(
-            trend_df,
-            x="Interview",
-            y=[
-                "Technical",
-                "Communication",
-                "Confidence"
-            ],
-            markers=True
+        multi_fig = create_skill_trend_chart(
+            trend_df
         )
 
         st.plotly_chart(
