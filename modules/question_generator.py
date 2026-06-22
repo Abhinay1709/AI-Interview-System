@@ -1,7 +1,9 @@
 import re
 import google.generativeai as genai
 
-
+from modules.error_logger import (
+    log_error
+)
 # ==========================================================
 # PROJECT EXTRACTION
 # ==========================================================
@@ -338,9 +340,18 @@ Output Rules:
             "gemini-2.5-flash"
         )
 
-        response = model.generate_content(
+        from modules.gemini_helper import (
+            generate_with_retry
+        )
+        response_text = generate_with_retry(
+            model,
             prompt
         )
+        
+        if not response_text:
+            raise Exception(
+                "Empty Gemini response"
+            )
 
         generated_text = response.text.strip()
 
@@ -365,10 +376,20 @@ Output Rules:
 
         return questions
 
-    except Exception:
-
-        return generate_fallback_questions()
-
+    except Exception as e:
+        log_error(e)
+        error_message = str(e)
+        if "429" in error_message:
+            return generate_fallback_questions()
+        elif "503" in error_message:
+            return generate_fallback_questions()
+        elif "timeout" in error_message.lower():
+            return generate_fallback_questions()
+        else:
+            print(
+                f"Question Generation Error: {error_message}"
+            )
+            return generate_fallback_questions()
 
 # ==========================================================
 # GENERATE CATEGORY GROUPS

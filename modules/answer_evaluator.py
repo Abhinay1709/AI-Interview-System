@@ -1,7 +1,9 @@
 import re
 import google.generativeai as genai
 
-
+from modules.error_logger import (
+    log_error
+)
 def clean_evaluation_text(text):
     
     if not text:
@@ -344,9 +346,18 @@ Use only the bullet symbol: •
         model = genai.GenerativeModel(
             "gemini-2.5-flash"
         )
-        response = model.generate_content(
+
+        from modules.gemini_helper import (
+            generate_with_retry
+        )
+        response_text = generate_with_retry(
+            model,
             prompt
-        )       
+        )
+        if not response_text:
+            raise Exception(
+                "Empty Gemini response"
+            )
         evaluation = response.text
         evaluation = clean_evaluation_text(
             evaluation
@@ -354,13 +365,21 @@ Use only the bullet symbol: •
         return evaluation
 
     except Exception as e:
-
+        log_error(e)
         return f"""
-Evaluation Error
-
-{str(e)}
-"""
-
+    Technical Score: 0
+    Communication Score: 0
+    Confidence Score: 0
+    Overall Score: 0
+    Questions Attempted: 0/0
+    Questions Skipped: 0/0
+    Strengths:
+    Evaluation Failed
+    Weaknesses:
+    Gemini Error
+    Suggestions:
+    {str(e)}
+    """
 
 # ==========================================================
 # EXTRACT SCORE

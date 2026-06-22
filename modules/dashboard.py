@@ -229,3 +229,35 @@ def show_interview_tracker(
             st.success("✅ Evaluation")
         else:
             st.error("❌ Evaluation")
+
+
+def show_placement_summary(
+    readiness,
+    probability
+):
+    st.subheader(
+        "🎯 Placement Summary"
+    )
+    c1, c2 = st.columns(2)
+    with c1:
+        st.metric(
+            "Readiness",
+            f"{readiness}%"
+        )
+    with c2:
+        st.metric(
+            "Placement Chance",
+            f"{probability}%"
+        )
+    if probability >= 80:
+        st.success(
+            "Ready for placements"
+        )
+    elif probability >= 60:
+        st.warning(
+            "Almost ready"
+        )
+    else:
+        st.error(
+            "Needs preparation"
+        )
