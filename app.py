@@ -97,10 +97,12 @@ from page_modules.resume_page import show_resume_page
 from page_modules.interview_page import show_interview_page
 from page_modules.evaluation_page import show_evaluation_page
 from page_modules.analytics_page import show_analytics_page
-from page_modules.history_page import show_history_page# ==================================================
+from page_modules.history_page import show_history_page
+
+
+# ==================================================
 # GEMINI CONFIGURATION
 # ==================================================
-
 genai.configure(api_key=GEMINI_API_KEY)
 
 # ==================================================
@@ -205,6 +207,10 @@ default_states = {
     "projects": [],
     "questions": [],
     "last_resume": "",
+    "fullscreen_confirmed": False,
+    "fullscreen_active": False,
+    "interview_paused": False,
+    "interview_locked": False,
     "show_evaluation_button": False,
     "job_role": "AI Engineer",
     "current_question_index": 0,
@@ -251,31 +257,36 @@ st.sidebar.markdown(
 
 st.sidebar.markdown("---")
 
+pages = [
+    "🏠 Dashboard",
+    "📄 Resume Analysis",
+    "🎯 Interview",
+    "📊 Evaluation",
+    "📈 Analytics",
+    "📚 History"
+]
 
-page = st.sidebar.radio(
-    "Navigation",
-    [
-        "🏠 Dashboard",
-        "📄 Resume Analysis",
-        "🎯 Interview",
-        "📊 Evaluation",
-        "📈 Analytics",
-        "📚 History"
-    ],
-    index=[
-        "🏠 Dashboard",
-        "📄 Resume Analysis",
-        "🎯 Interview",
-        "📊 Evaluation",
-        "📈 Analytics",
-        "📚 History"
-    ].index(
-        st.session_state.get(
-            "current_page",
-            "📄 Resume Analysis"
+if st.session_state.interview_locked:
+
+    st.sidebar.warning(
+        "🎯 Interview In Progress"
+    )
+
+    page = "🎯 Interview"
+
+else:
+
+    page = st.sidebar.radio(
+        "Navigation",
+        pages,
+        index=pages.index(
+            st.session_state.get(
+                "current_page",
+                "📄 Resume Analysis"
+            )
         )
     )
-)
+
 st.session_state.current_page = page
 
 st.sidebar.markdown("---")
@@ -334,5 +345,3 @@ try:
     st.sidebar.caption(f"Version {APP_VERSION}")
 except NameError:
     st.sidebar.caption("Version 1.0.0")
-    
-    

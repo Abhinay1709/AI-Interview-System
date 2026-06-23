@@ -15,6 +15,11 @@ from modules.answer_manager import (
     get_interview_statistics
 )
 
+from modules.fullscreen_utils import (
+    render_enter_fullscreen_button,
+    render_exit_fullscreen_button
+)
+
 # ==================================================
 # PART 3: INTERVIEW PAGE       
 # ==================================================
@@ -83,15 +88,75 @@ def show_interview_page():
                 st.session_state.interview_finished = False
                 st.session_state.interview_completed = False
                 st.session_state.auto_saved = False
-
-                st.success("✅ 10 Questions Generated Successfully")
+                st.session_state.interview_locked = False
+                st.session_state.fullscreen_confirmed = False
+                st.success(
+                    "✅ Questions Generated Successfully"
+                )
+                st.info(
+                    "📢 Please enter Full Screen Mode before starting the interview."
+                )
                 st.rerun()
 
         # QUESTIONS GENERATED
         if st.session_state.questions:
-            total_questions = len(st.session_state.questions)
-            current_index = st.session_state.current_question_index
-            current_question = st.session_state.questions[current_index]
+            if (
+                st.session_state.fullscreen_confirmed
+                and
+                not st.session_state.interview_finished
+            ):
+                st.warning(
+                    "🎯 Interview Currently In Progress"
+                )
+
+            if not st.session_state.fullscreen_confirmed:
+                
+                st.markdown(
+                    """
+                    ## 🎯 Interview Ready Check
+                    """
+                )
+                st.warning(
+                    """
+                    Before starting:
+                    ✅ Click Enter Fullscreen Mode
+
+                    ✅ Stay focused during interview
+
+                    ✅ Do not switch tabs
+
+                    ✅ Complete all questions honestly
+
+                    ✅ Finish interview in one session
+                    """
+                )
+                render_enter_fullscreen_button(
+                    "🖥 Enter Fullscreen Mode"
+                )
+                st.info(
+                    "After entering fullscreen, click Begin Interview."
+                )
+                col1, col2, col3 = st.columns([1,2,1])
+                with col2:
+                    if st.button(
+                        "🚀 Begin Interview",
+                        type="primary",
+                        use_container_width=True
+                    ):
+                        st.session_state.fullscreen_confirmed = True
+                        st.session_state.interview_locked = True
+                        st.rerun()
+                st.stop()
+
+            total_questions = len(
+                st.session_state.questions
+            )
+            current_index = (
+                st.session_state.current_question_index
+            )
+            current_question = (
+                st.session_state.questions[current_index]
+            )
 
             # PROGRESS BAR
             progress = (current_index + 1) / total_questions
@@ -159,9 +224,12 @@ def show_interview_page():
                     if st.button("🎯 Finish Interview", type="primary"):
                         st.session_state.question_answers[current_question] = answer_text
                         st.session_state.interview_finished = True
+                        st.session_state.interview_locked = False
+                        st.session_state.fullscreen_confirmed = False
                         st.success(
                             "✅ Interview Completed Successfully!"
                         )
+                        render_exit_fullscreen_button()
                         st.info(
                             "📊 Your interview is ready for evaluation."
                         )
@@ -178,6 +246,11 @@ def show_interview_page():
                 st.info(
                     "📊 Ready to generate your evaluation report."
                 )
+
+                render_exit_fullscreen_button(
+                    "🔙 Exit Fullscreen & Return to Normal Screen"
+                )
+
                 if st.button(
                     "🚀 Go To Evaluation",
                     type="primary"

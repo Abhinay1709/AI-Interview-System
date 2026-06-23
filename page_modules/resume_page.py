@@ -42,6 +42,15 @@ def show_resume_page():
             st.session_state.resume_details = {}
             st.session_state.skills = []
             st.session_state.projects = []
+            st.session_state.questions = []
+            st.session_state.question_answers = {}
+            st.session_state.fullscreen_confirmed = False
+            st.session_state.interview_finished = False
+            st.session_state.interview_completed = False
+            st.session_state.interview_locked = False
+            st.session_state.show_evaluation_button = False
+            st.session_state.current_question_index = 0
+
 
     # PROCESS RESUME
     if uploaded_file is not None:
