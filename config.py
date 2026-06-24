@@ -17,17 +17,22 @@ GEMINI_API_KEY = os.getenv(
     "GEMINI_API_KEY"
 )
 
+# If the key is not provided, warn instead of raising so the
+# app can start in limited mode (useful for local dev or when
+# features that require the key are optional).
 if not GEMINI_API_KEY:
+    import warnings
 
-    raise ValueError(
-        """
-GEMINI_API_KEY not found.
-
-Create a .env file in project root:
-
-GEMINI_API_KEY=your_api_key_here
-"""
+    warnings.warn(
+        (
+            "GEMINI_API_KEY not found. Some features may not work.\n"
+            "Create a .env file in project root or set the environment variable:\n\n"
+            "GEMINI_API_KEY=your_api_key_here"
+        ),
+        UserWarning,
     )
+
+    GEMINI_API_KEY = None
 
 
 # ==========================================================

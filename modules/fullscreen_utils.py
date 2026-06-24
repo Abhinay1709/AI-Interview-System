@@ -5,11 +5,20 @@
 # the AI Interview System.
 #
 # Install required packages:
-#   pip install streamlit-javascript streamlit-autorefresh
+#   pip install streamlit-javascript
 # ==================================================
 
+import warnings
 import streamlit as st
-from streamlit_javascript import st_javascript
+
+try:
+    from streamlit_javascript import st_javascript
+except ImportError:
+    st_javascript = None
+    warnings.warn(
+        "streamlit_javascript is not installed. Fullscreen status detection will be disabled.",
+        UserWarning,
+    )
 
 
 # ==================================================
@@ -31,6 +40,9 @@ def check_fullscreen_status(key="fullscreen_check"):
        window.parent.document.mozFullScreenElement ||
        window.parent.document.msFullscreenElement)
     """
+
+    if st_javascript is None:
+        return False
 
     try:
         result = st_javascript(js_code, key=key)
