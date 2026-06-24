@@ -266,8 +266,32 @@ pages = [
     "📚 History"
 ]
 
-if st.session_state.interview_locked:
+for page_name in pages:
 
+    active = (
+        page_name ==
+        st.session_state.get(
+            "current_page",
+            "📄 Resume Analysis"
+        )
+    )
+
+    if active:
+        st.sidebar.success(page_name)
+    else:
+        if st.sidebar.button(
+            page_name,
+            use_container_width=True
+        ):
+            st.session_state.current_page = page_name
+            st.rerun()
+
+page = st.session_state.get(
+    "current_page",
+    "📄 Resume Analysis"
+)
+if st.session_state.interview_locked:
+    
     st.sidebar.warning(
         "🎯 Interview In Progress"
     )
@@ -276,15 +300,9 @@ if st.session_state.interview_locked:
 
 else:
 
-    page = st.sidebar.radio(
-        "Navigation",
-        pages,
-        index=pages.index(
-            st.session_state.get(
-                "current_page",
-                "📄 Resume Analysis"
-            )
-        )
+    page = st.session_state.get(
+        "current_page",
+        "📄 Resume Analysis"
     )
 
 st.session_state.current_page = page
