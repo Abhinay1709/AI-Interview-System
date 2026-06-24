@@ -83,12 +83,22 @@ def show_analytics_page():
             f"{consistency}%"
         )
     with c2:
-        st.success(
-            f"Strongest Area: {strong_area}"
-        )
-        st.warning(
-            f"Weakest Area: {weak_area}"
-        )
+        if strong_area == "Not Enough Data":
+            st.info(
+                "📭 Not enough interview data to identify strongest area."
+            )
+        else:
+            st.success(
+                f"Strongest Area: {strong_area}"
+            )
+        if weak_area == "Not Enough Data":
+            st.info(
+                "📭 Not enough interview data to identify weakest area."
+            )
+        else:
+            st.warning(
+                f"Weakest Area: {weak_area}"
+            )
 
     if records:
         latest_record = normalize_interview_record(

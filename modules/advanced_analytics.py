@@ -48,56 +48,31 @@ def calculate_consistency(records):
 
 
 def strongest_area(stats):
-
+    
     areas = {
-
-        "Technical":
-        stats.get(
-            "average_technical",
-            0
-        ),
-
-        "Communication":
-        stats.get(
-            "average_communication",
-            0
-        ),
-
-        "Confidence":
-        stats.get(
-            "average_confidence",
-            0
-        )
+        "Technical": stats.get("average_technical", 0),
+        "Communication": stats.get("average_communication", 0),
+        "Confidence": stats.get("average_confidence", 0)
     }
+
+    if len(set(areas.values())) == 1:
+        return "Not Enough Data"
 
     return max(
         areas,
         key=areas.get
     )
 
-
 def weakest_area(stats):
-
+    
     areas = {
-
-        "Technical":
-        stats.get(
-            "average_technical",
-            0
-        ),
-
-        "Communication":
-        stats.get(
-            "average_communication",
-            0
-        ),
-
-        "Confidence":
-        stats.get(
-            "average_confidence",
-            0
-        )
+        "Technical": stats.get("average_technical", 0),
+        "Communication": stats.get("average_communication", 0),
+        "Confidence": stats.get("average_confidence", 0)
     }
+
+    if len(set(areas.values())) == 1:
+        return "Not Enough Data"
 
     return min(
         areas,
