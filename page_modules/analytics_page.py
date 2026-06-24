@@ -128,7 +128,9 @@ def show_analytics_page():
     st.subheader(
         "🏆 Best Interview"
     )
-    if best_record:
+    if not records:
+        st.info("📭 No interviews available in history.")
+    elif best_record:
         c1, c2, c3 = st.columns(3)
         with c1:
             st.metric(
@@ -200,7 +202,6 @@ def show_analytics_page():
     # SCORE TREND CHART
     if trend_data:
         trend_df = pd.DataFrame(trend_data)
-        
 
         st.divider()
         st.subheader(
@@ -236,7 +237,6 @@ def show_analytics_page():
                 "Communication": avg_comm,
                 "Confidence": avg_conf
             },
-
             key=lambda x: {
                 "Technical": avg_tech,
                 "Communication": avg_comm,
@@ -301,18 +301,25 @@ def show_analytics_page():
     st.divider()
     st.subheader("Interview Statistics")
 
-    stat1, stat2 = st.columns(2)
-
-    with stat1:
-        st.metric("Attempted Questions", stats.get("attempted_questions", 0))
-    with stat2:
-        st.metric("Skipped Questions", stats.get("skipped_questions", 0))
+    if not records:
+        st.info(
+            "📭 No interview statistics available."
+        )
+    else:
+        stat1, stat2 = st.columns(2)
+        with stat1:
+            st.metric("Attempted Questions", stats.get("attempted_questions", 0))
+        with stat2:
+            st.metric("Skipped Questions", stats.get("skipped_questions", 0))
     
     st.divider()
     st.subheader("📊 Interview Comparison")
     
-    if len(records) >= 2:
-        
+    if len(records) < 2:
+        st.info(
+            "📭 At least 2 interviews are required for comparison."
+        )
+    else:
         comparison_options = []
 
         for index, record in enumerate(records, start=1):
@@ -384,4 +391,3 @@ def show_analytics_page():
         with right:
             st.markdown("### 💪 Interview 2 Strengths")
             st.success(record2.get("strengths", ""))
-            

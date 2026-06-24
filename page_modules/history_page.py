@@ -22,6 +22,7 @@ def show_history_page():
     st.header("📚 Interview History")
     records = get_all_interviews()
 
+
     if records:
         timeline = []
         for index, record in enumerate(
@@ -75,9 +76,25 @@ def show_history_page():
                 "Average Score",
                 average_score
             )
-
     if not records:
-        st.info("No interview history available.")
+        st.info(
+            "📭 No interview history available."
+        )
+        st.divider()
+        st.subheader(
+            "📤 Export Interview History"
+        )
+        st.warning(
+            "No interview records available to export."
+        )
+        st.divider()
+        st.subheader(
+            "⚠ History Management"
+        )
+        st.warning(
+            "No interview records available to manage."
+        )
+        st.stop()
 
     else:
         for interview_number, record in enumerate(records, start=1):
