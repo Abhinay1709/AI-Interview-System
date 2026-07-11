@@ -17,6 +17,10 @@ from modules.export_history import (
     export_history_to_excel
 )
 
+from modules.backup_manager import (
+    backup_database
+)
+
 
 def show_history_page():
     st.header("📚 Interview History")

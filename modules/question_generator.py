@@ -353,7 +353,7 @@ Output Rules:
                 "Empty Gemini response"
             )
 
-        generated_text = response.text.strip()
+        generated_text = response_text.strip()
 
         questions = clean_questions(
             generated_text

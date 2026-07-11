@@ -358,7 +358,7 @@ Use only the bullet symbol: •
             raise Exception(
                 "Empty Gemini response"
             )
-        evaluation = response.text
+        evaluation = response_text
         evaluation = clean_evaluation_text(
             evaluation
         )
